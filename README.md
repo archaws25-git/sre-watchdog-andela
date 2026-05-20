@@ -1,6 +1,6 @@
 # SRE Watchdog
 
-AI-powered observability platform for Site Reliability Engineering teams. SRE Watchdog ingests application logs, detects anomalies using a two-gate statistical + AI pipeline (AWS Bedrock), dispatches webhook alerts when thresholds are breached, and visualises service health on an internal dashboard.
+AI-powered observability platform for Site Reliability Engineering teams. SRE Watchdog ingests application logs, detects anomalies using a two-gate statistical + AI pipeline (AWS Bedrock), dispatches webhook alerts when thresholds are breached, and visualizes service health on an internal dashboard.
 
 ---
 
