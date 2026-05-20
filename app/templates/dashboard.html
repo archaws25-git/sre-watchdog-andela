@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRE Watchdog Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .header h1 { font-size: 1.8rem; color: #fff; }
+        .header-info {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        .btn-analyze {
+            background: #36A2EB;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn-analyze:hover { background: #2b8dd4; }
+        .btn-analyze:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .btn-analyze .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Metrics bar */
+        .metrics-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #2a2a4a;
+        }
+        .metric-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .metric-card .label {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        /* Chart */
+        .chart-container {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #2a2a4a;
+        }
+        .chart-container h2 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Tables */
+        .table-section {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #2a2a4a;
+            overflow-x: auto;
+        }
+        .table-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        th {
+            color: #aaa;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+        td { color: #e0e0e0; }
+
+        /* Severity badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-low { background: #2d6a4f; color: #b7e4c7; }
+        .badge-medium { background: #7f5539; color: #ffe0b2; }
+        .badge-high { background: #9d4e15; color: #ffcc80; }
+        .badge-critical { background: #b71c1c; color: #ffcdd2; }
+        .badge-unknown { background: #555; color: #ccc; }
+
+        /* Status badges */
+        .status-sent { color: #4caf50; }
+        .status-failed { color: #f44336; }
+        .status-suppressed { color: #ff9800; }
+
+        /* Footer note */
+        .footer-note {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #777;
+            margin-top: 16px;
+            padding: 12px;
+            border-top: 1px solid #2a2a4a;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>SRE Watchdog Dashboard</h1>
+            <div class="header-info">
+                Last updated: <span id="last-updated">{{ now }}</span> &nbsp;|&nbsp; Auto-refresh: 60s
+            </div>
+        </div>
+        <button class="btn-analyze" id="btn-analyze" onclick="runAnalysis()">
+            Run Analysis
+        </button>
+    </div>
+
+    <!-- Metrics Bar -->
+    <div class="metrics-bar">
+        <div class="metric-card">
+            <div class="value" id="metric-logs">{{ total_logs_ingested }}</div>
+            <div class="label">Logs Ingested</div>
+        </div>
+        <div class="metric-card">
+            <div class="value" id="metric-anomalies">{{ total_anomalies }}</div>
+            <div class="label">Anomalies</div>
+        </div>
+        <div class="metric-card">
+            <div class="value" id="metric-alerts">{{ total_alerts }}</div>
+            <div class="label">Alerts</div>
+        </div>
+        <div class="metric-card">
+            <div class="value" id="metric-failed">{{ total_failed }}</div>
+            <div class="label">Failed</div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-container">
+        <h2>Error Rate Trend (Last 24 Hours)</h2>
+        <div class="chart-wrapper">
+            <canvas id="errorRateChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Anomalies Table -->
+    <div class="table-section">
+        <h2>Recent Anomalies</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Window</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>Severity</th>
+                    <th>AI Summary</th>
+                </tr>
+            </thead>
+            <tbody id="anomalies-tbody">
+                {% for anomaly in recent_anomalies %}
+                <tr>
+                    <td>{{ anomaly.service }}</td>
+                    <td>{{ anomaly.window_start }} – {{ anomaly.window_end }}</td>
+                    <td>{{ anomaly.anomaly_score if anomaly.anomaly_score is not none else "—" }}</td>
+                    <td>{{ anomaly.status }}</td>
+                    <td><span class="badge badge-{{ anomaly.severity | lower }}">{{ anomaly.severity }}</span></td>
+                    <td>{{ anomaly.ai_summary if anomaly.ai_summary else "—" }}</td>
+                </tr>
+                {% endfor %}
+                {% if not recent_anomalies %}
+                <tr><td colspan="6" style="text-align:center; color:#777;">No anomalies detected yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Recent Alerts Table -->
+    <div class="table-section">
+        <h2>Recent Alerts</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Service</th>
+                    <th>Severity</th>
+                    <th>Anomaly ID</th>
+                    <th>Dispatch Status</th>
+                </tr>
+            </thead>
+            <tbody id="alerts-tbody">
+                {% for alert in recent_alerts %}
+                <tr>
+                    <td>{{ alert.dispatched_at }}</td>
+                    <td>{{ alert.service }}</td>
+                    <td><span class="badge badge-{{ alert.severity | lower }}">{{ alert.severity }}</span></td>
+                    <td>{{ alert.anomaly_id }}</td>
+                    <td><span class="status-{{ alert.dispatch_status }}">{{ alert.dispatch_status }}</span></td>
+                </tr>
+                {% endfor %}
+                {% if not recent_alerts %}
+                <tr><td colspan="5" style="text-align:center; color:#777;">No alerts dispatched yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-note">
+        Authentication required for production use. This dashboard is accessible without authentication for the MVP.
+    </div>
+
+    <script>
+        // --- Chart.js initialization ---
+        const chartData = {{ chart_data | tojson }};
+
+        const ctx = document.getElementById('errorRateChart').getContext('2d');
+        const errorRateChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: chartData.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#aaa', maxTicksLimit: 12 },
+                        grid: { color: '#2a2a4a' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 1,
+                        ticks: {
+                            color: '#aaa',
+                            callback: function(value) { return (value * 100).toFixed(0) + '%'; }
+                        },
+                        grid: { color: '#2a2a4a' },
+                        title: { display: true, text: 'Error Rate', color: '#aaa' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#e0e0e0' }
+                    }
+                }
+            }
+        });
+
+        // --- Run Analysis button ---
+        async function runAnalysis() {
+            const btn = document.getElementById('btn-analyze');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+            try {
+                const now = new Date();
+                const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        start_time: oneHourAgo.toISOString(),
+                        end_time: now.toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to start analysis');
+                }
+
+                const data = await response.json();
+                const jobId = data.job_id;
+
+                // Poll for completion every 3 seconds
+                await pollAnalysisJob(jobId);
+            } catch (error) {
+                console.error('Analysis error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Run Analysis';
+            }
+        }
+
+        async function pollAnalysisJob(jobId) {
+            return new Promise((resolve, reject) => {
+                const interval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/analyze/${jobId}`);
+                        if (!response.ok) {
+                            clearInterval(interval);
+                            reject(new Error('Failed to poll job'));
+                            return;
+                        }
+
+                        const data = await response.json();
+
+                        if (data.status === 'completed' || data.status === 'failed') {
+                            clearInterval(interval);
+                            // Refresh anomaly list on completion
+                            await refreshAnomalies();
+                            resolve(data);
+                        }
+                    } catch (error) {
+                        clearInterval(interval);
+                        reject(error);
+                    }
+                }, 3000);
+            });
+        }
+
+        // --- Auto-refresh functions ---
+        async function refreshAnomalies() {
+            try {
+                const response = await fetch('/anomalies?page=1&page_size=20');
+                if (!response.ok) return;
+                const anomalies = await response.json();
+                renderAnomaliesTable(anomalies);
+            } catch (error) {
+                console.error('Failed to refresh anomalies:', error);
+            }
+        }
+
+        async function refreshAlerts() {
+            try {
+                const response = await fetch('/alerts?page=1&page_size=20');
+                if (!response.ok) return;
+                const alerts = await response.json();
+                renderAlertsTable(alerts);
+            } catch (error) {
+                console.error('Failed to refresh alerts:', error);
+            }
+        }
+
+        async function refreshMetrics() {
+            try {
+                const response = await fetch('/metrics');
+                if (!response.ok) return;
+                const metrics = await response.json();
+                document.getElementById('metric-logs').textContent = metrics.total_logs_ingested;
+                document.getElementById('metric-anomalies').textContent = metrics.total_anomalies_detected;
+                document.getElementById('metric-alerts').textContent = metrics.total_alerts_dispatched;
+                document.getElementById('metric-failed').textContent = metrics.total_failed_alerts;
+            } catch (error) {
+                console.error('Failed to refresh metrics:', error);
+            }
+        }
+
+        function getSeverityBadge(severity) {
+            const cls = severity ? severity.toLowerCase() : 'unknown';
+            return `<span class="badge badge-${cls}">${severity || 'UNKNOWN'}</span>`;
+        }
+
+        function getStatusClass(status) {
+            if (status === 'sent') return 'status-sent';
+            if (status === 'failed') return 'status-failed';
+            if (status === 'suppressed') return 'status-suppressed';
+            return '';
+        }
+
+        function computeSeverity(score) {
+            if (score === null || score === undefined) return 'UNKNOWN';
+            if (score <= 0.39) return 'LOW';
+            if (score <= 0.69) return 'MEDIUM';
+            if (score <= 0.89) return 'HIGH';
+            return 'CRITICAL';
+        }
+
+        function renderAnomaliesTable(anomalies) {
+            const tbody = document.getElementById('anomalies-tbody');
+            if (!anomalies || anomalies.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#777;">No anomalies detected yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = anomalies.map(a => {
+                const severity = computeSeverity(a.anomaly_score);
+                return `<tr>
+                    <td>${a.service}</td>
+                    <td>${a.window_start} – ${a.window_end}</td>
+                    <td>${a.anomaly_score !== null ? a.anomaly_score : '—'}</td>
+                    <td>${a.status}</td>
+                    <td>${getSeverityBadge(severity)}</td>
+                    <td>${a.ai_summary || '—'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderAlertsTable(alerts) {
+            const tbody = document.getElementById('alerts-tbody');
+            if (!alerts || alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#777;">No alerts dispatched yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = alerts.map(a => `<tr>
+                <td>${a.dispatched_at}</td>
+                <td>${a.service || 'unknown'}</td>
+                <td>${getSeverityBadge(a.severity)}</td>
+                <td>${a.anomaly_id}</td>
+                <td><span class="${getStatusClass(a.dispatch_status)}">${a.dispatch_status}</span></td>
+            </tr>`).join('');
+        }
+
+        // --- Auto-refresh every 60 seconds ---
+        setInterval(() => {
+            refreshAnomalies();
+            refreshAlerts();
+            refreshMetrics();
+            document.getElementById('last-updated').textContent = new Date().toISOString();
+        }, 60000);
+    </script>
+</body>
+</html>

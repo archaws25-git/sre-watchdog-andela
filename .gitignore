@@ -1,0 +1,52 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# Environment variables (contains secrets)
+.env
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.hypothesis/
+
+# mypy
+.mypy_cache/
+
+# Logs
+*.log
+
+# Kiro specs (keep steering, ignore specs metadata)
+.kiro/specs/*/.config.kiro
