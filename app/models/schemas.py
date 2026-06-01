@@ -22,7 +22,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +118,15 @@ class AnalyzeJobStatus(str, Enum):
 # Log Ingestion Schemas
 # ---------------------------------------------------------------------------
 
+VALID_SERVICES: List[str] = [
+    "api-gateway",
+    "auth-service",
+    "payment-service",
+    "notification-service",
+    "database-proxy",
+]
+"""The 5 named services accepted by the log ingestion endpoint."""
+
 
 class LogEntryCreate(BaseModel):
     """Schema for creating a single log entry via POST /logs/ingest.
@@ -133,6 +142,26 @@ class LogEntryCreate(BaseModel):
     service: str
     level: LogLevel
     message: str
+
+    @field_validator("service")
+    @classmethod
+    def validate_service_name(cls, value: str) -> str:
+        """Validate that service is one of the 5 known monitored services.
+
+        Args:
+            value: The service name to validate.
+
+        Returns:
+            The validated service name, unchanged.
+
+        Raises:
+            ValueError: If the service name is not in VALID_SERVICES.
+        """
+        if value not in VALID_SERVICES:
+            raise ValueError(
+                f"Unknown service '{value}'. Must be one of: {', '.join(VALID_SERVICES)}"
+            )
+        return value
 
 
 class LogEntryResponse(LogEntryCreate):

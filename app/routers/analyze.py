@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
+from app.rate_limit import limiter
 from app.models.db_models import AnomalyWindow, LogEntry
 from app.models.schemas import (
     AnalyzeJobResult,
@@ -66,6 +67,7 @@ ERROR_LEVELS: set = {"ERROR", "CRITICAL"}
 
 
 @router.post("/analyze", status_code=202, response_model=AnalyzeResponse)
+@limiter.limit("10/minute")
 def create_analyze_job(
     body: AnalyzeRequest,
     request: Request,

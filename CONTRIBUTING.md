@@ -90,6 +90,37 @@ All code must pass flake8 with **zero errors** before submitting a PR.
 
 ---
 
+## Type Checking
+
+The project uses `mypy` for static type analysis:
+
+```bash
+mypy app/
+```
+
+Configuration is in `mypy.ini` (and consolidated in `pyproject.toml`). Mypy runs in CI as advisory (non-blocking) but all new code should aim for zero type errors.
+
+---
+
+## Configuration
+
+All tool configuration (pytest, mypy, flake8, coverage) is consolidated in `pyproject.toml`. Legacy config files (`.flake8`, `pytest.ini`, `mypy.ini`) remain for tool compatibility but `pyproject.toml` is the canonical source.
+
+---
+
+## Rate Limiting
+
+The project uses `slowapi` for per-IP rate limiting on write endpoints. The limiter is defined in `app/rate_limit.py`.
+
+| Endpoint | Limit |
+|----------|-------|
+| `POST /logs/ingest` | 60 requests/minute |
+| `POST /analyze` | 10 requests/minute |
+
+When adding new write endpoints, apply rate limits using the shared `limiter` instance from `app/rate_limit.py`. Exceeding the limit returns HTTP 429 with a structured error body.
+
+---
+
 ## Testing
 
 ### Running Tests
@@ -165,6 +196,7 @@ sre-watchdog/
 │   ├── config.py               # pydantic-settings; reads all env vars
 │   ├── database.py             # SQLite engine, WAL mode, session factory
 │   ├── middleware.py           # Structured JSON request logging
+│   ├── rate_limit.py           # slowapi rate limiter instance
 │   ├── scheduler.py            # APScheduler setup and job registration
 │   ├── models/
 │   │   ├── db_models.py        # SQLAlchemy ORM models
@@ -186,14 +218,25 @@ sre-watchdog/
 │   │   └── dashboard_service.py
 │   └── templates/
 │       └── dashboard.html      # Jinja2 + Chart.js dashboard template
+├── docs/
+│   ├── architectural_decision_records.md
+│   ├── cost_analysis.md
+│   ├── data_flow_integration.md
+│   ├── deployment_instructions.md
+│   ├── implementation_plan.md
+│   ├── observability_evaluation.md
+│   ├── security_compliance.md
+│   └── testing_specifics.md
 ├── tests/
 │   ├── conftest.py             # Shared fixtures
 │   ├── unit/                   # Unit tests
 │   └── integration/            # Integration tests
 ├── generate_logs.py            # Synthetic log generator CLI
 ├── .env.example                # Environment variable reference
+├── pyproject.toml              # Consolidated tool configuration
 ├── requirements.txt            # Pinned dependencies
 ├── pytest.ini                  # pytest configuration
+├── mypy.ini                    # mypy configuration
 └── .flake8                     # flake8 configuration
 ```
 

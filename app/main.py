@@ -16,17 +16,31 @@ import sys
 from contextlib import asynccontextmanager
 
 import boto3
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
 from app.middleware import RequestLoggingMiddleware
+from app.rate_limit import limiter
 from app.routers import alerts, analyze, anomalies, dashboard, health, logs, metrics, webhooks
 from app.scheduler import create_scheduler, start_scheduler, stop_scheduler
 from app.services.anomaly_detector import cleanup_stale_pending
 from app.services.bedrock_client import BedrockClient
 
 logger = logging.getLogger(__name__)
+
+
+def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """Return a structured 429 response when rate limit is exceeded."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "Rate limit exceeded",
+            "detail": str(exc.detail),
+        },
+    )
 
 
 def _configure_logging(log_level: str) -> None:
@@ -134,6 +148,10 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="SRE Watchdog", lifespan=lifespan)
+
+# --- Rate Limiter ---
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- Middleware ---
 app.add_middleware(RequestLoggingMiddleware)

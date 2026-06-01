@@ -160,3 +160,46 @@ The dashboard needs to display real-time data (anomalies, alerts, metrics) while
 - **Positive:** Fast first paint — no client-side framework needed.
 - **Positive:** Clean separation — Jinja2 for structure, Chart.js for visualization, fetch for live data.
 - **Negative:** No WebSocket support — data freshness is limited to the 60-second polling interval. Acceptable for SRE dashboards where sub-second updates are not required.
+
+---
+
+## ADR-016: Rate Limiting via slowapi on Write Endpoints
+
+### Context
+
+The `POST /logs/ingest` and `POST /analyze` endpoints are unprotected against excessive request volume. A single client (or misconfigured log shipper) could flood the ingest endpoint, exhaust database write capacity, or trigger expensive Bedrock API calls at an unsustainable rate.
+
+### Decision
+
+Add per-IP rate limiting using `slowapi==0.1.9` (a Starlette/FastAPI wrapper around the `limits` library):
+- `POST /logs/ingest`: 60 requests per minute per IP
+- `POST /analyze`: 10 requests per minute per IP
+- Rate limiter instance defined in `app/rate_limit.py` and applied as a dependency on the relevant route handlers
+- Exceeding the limit returns HTTP 429 with a structured JSON error body including `error`, `detail`, and `retry_after` fields
+
+### Consequences
+
+- **Positive:** Prevents denial-of-service from misconfigured clients or deliberate abuse.
+- **Positive:** Protects downstream Bedrock API costs by capping analysis trigger frequency.
+- **Positive:** Structured 429 response allows clients to implement backoff logic.
+- **Negative:** Adds `slowapi` as a runtime dependency.
+- **Negative:** In-memory rate limit state resets on application restart (acceptable for MVP; use Redis backend for production multi-instance deployment).
+
+---
+
+## ADR-017: Service Name Validation on LogEntryCreate
+
+### Context
+
+The `LogEntryCreate.service` field previously accepted any arbitrary string. This allowed typos, unknown services, and inconsistent naming to pollute the log database, making per-service anomaly detection unreliable.
+
+### Decision
+
+Add a Pydantic `field_validator` on `LogEntryCreate.service` that validates the value against the 5 known monitored services: `api-gateway`, `auth-service`, `payment-service`, `notification-service`, `database-proxy`. Requests with unknown service names are rejected at the API boundary with HTTP 422.
+
+### Consequences
+
+- **Positive:** Guarantees data quality — only logs from known services enter the detection pipeline.
+- **Positive:** Catches misconfigured log shippers immediately with a clear error message.
+- **Positive:** Simplifies downstream queries — no need to filter or normalize service names.
+- **Negative:** Adding a new service requires a code change to the validator (acceptable for a fixed-scope MVP; production could read from a config file or database).
