@@ -55,7 +55,7 @@ Key variables to configure:
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///./watchdog.db` |
 | `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
-| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-5-20251101-v1:0` |
+| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-6` |
 | `ERROR_RATE_THRESHOLD` | Gate 1 error rate trigger | `0.1` |
 | `ANOMALY_SCORE_THRESHOLD` | Gate 2 AI score trigger | `0.5` |
 | `WEBHOOK_URL` | Alert dispatch target | `http://localhost:8000/webhooks/echo` |

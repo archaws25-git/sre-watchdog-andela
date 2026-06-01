@@ -24,7 +24,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 import boto3
@@ -417,7 +417,7 @@ class BedrockClient:
         if self._app_state is None:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if is_success:
             self._app_state.bedrock_health = {

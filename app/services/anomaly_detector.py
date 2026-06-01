@@ -29,7 +29,7 @@ Typical usage::
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import BackgroundTasks
@@ -92,7 +92,7 @@ def evaluate_all_services(
             Gate 2 analysis tasks.
         bedrock_client: The Bedrock client instance for Gate 2 analysis.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     window_start = now - timedelta(minutes=settings.SLIDING_WINDOW_MINUTES)
     window_start_iso = window_start.strftime("%Y-%m-%dT%H:%M:%S")
     window_end_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
@@ -223,7 +223,7 @@ def run_gate2(
             # Bedrock returned unparseable response
             anomaly_window.status = "analysis_failed"
             anomaly_window.failure_reason = f"BedrockParseError: {exc.message}"
-            anomaly_window.updated_at = datetime.utcnow().isoformat()
+            anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
             db.commit()
 
             logger.warning(
@@ -237,7 +237,7 @@ def run_gate2(
             # Any other Bedrock failure (ClientError, timeout, etc.)
             anomaly_window.status = "analysis_failed"
             anomaly_window.failure_reason = str(exc)
-            anomaly_window.updated_at = datetime.utcnow().isoformat()
+            anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
             db.commit()
 
             logger.warning(
@@ -258,7 +258,7 @@ def run_gate2(
                 # Cooldown active — suppress alert dispatch
                 anomaly_window.status = "suppressed"
                 anomaly_window.suppression_reason = "cooldown_active"
-                anomaly_window.updated_at = datetime.utcnow().isoformat()
+                anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
                 db.commit()
 
                 # Still create a suppressed alert record via alert_service
@@ -273,7 +273,7 @@ def run_gate2(
             else:
                 # No cooldown — confirm and dispatch alert
                 anomaly_window.status = "confirmed"
-                anomaly_window.updated_at = datetime.utcnow().isoformat()
+                anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
                 db.commit()
 
                 # Dispatch alert (this will update status to 'alerted' on success)
@@ -288,7 +288,7 @@ def run_gate2(
         else:
             # Score below threshold — no alert
             anomaly_window.status = "below_score_threshold"
-            anomaly_window.updated_at = datetime.utcnow().isoformat()
+            anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
             db.commit()
 
             logger.info(
@@ -321,7 +321,7 @@ def cleanup_stale_pending(db: Session) -> int:
         The number of records marked as analysis_failed.
     """
     cutoff = (
-        datetime.utcnow() - timedelta(minutes=STALE_PENDING_MINUTES)
+        datetime.now(timezone.utc) - timedelta(minutes=STALE_PENDING_MINUTES)
     ).isoformat()
 
     stale_count = (
@@ -335,7 +335,7 @@ def cleanup_stale_pending(db: Session) -> int:
                 "status": "analysis_failed",
                 "suppression_reason": "orphaned_on_restart",
                 "failure_reason": "Application restarted before Gate 2 completed",
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
     )

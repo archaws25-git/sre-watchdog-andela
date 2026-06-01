@@ -18,7 +18,7 @@ Typical usage::
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -88,7 +88,7 @@ def is_in_cooldown(service: str, db: Session, settings: Settings) -> bool:
         recently dispatched), ``False`` otherwise.
     """
     cutoff = (
-        datetime.utcnow() - timedelta(minutes=settings.ALERT_COOLDOWN_MINUTES)
+        datetime.now(timezone.utc) - timedelta(minutes=settings.ALERT_COOLDOWN_MINUTES)
     ).isoformat()
 
     result = (
@@ -154,7 +154,7 @@ def dispatch(
         # Update anomaly window status to suppressed
         anomaly_window.status = "suppressed"
         anomaly_window.suppression_reason = "cooldown_active"
-        anomaly_window.updated_at = datetime.utcnow().isoformat()
+        anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
 
         db.commit()
         db.refresh(alert_record)
@@ -237,7 +237,7 @@ def dispatch(
     # Update anomaly window on successful dispatch
     if dispatch_status == AlertDispatchStatus.SENT:
         anomaly_window.status = "alerted"
-        anomaly_window.updated_at = datetime.utcnow().isoformat()
+        anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
 
     db.commit()
     db.refresh(alert_record)
@@ -272,7 +272,7 @@ def _build_payload(
         A dictionary representing the webhook payload.
     """
     return {
-        "alert_timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "alert_timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "anomaly_id": anomaly_window.id,
         "service": anomaly_window.service,
         "window_start": anomaly_window.window_start,

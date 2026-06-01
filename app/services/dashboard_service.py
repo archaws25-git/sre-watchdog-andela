@@ -18,7 +18,7 @@ Typical usage::
     alerts = get_recent_alerts(db, limit=20)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import func
@@ -79,7 +79,7 @@ def get_chart_data(db: Session) -> dict[str, Any]:
                 ]
             }
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Align to the start of the current hour
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     start_time = current_hour - timedelta(hours=23)

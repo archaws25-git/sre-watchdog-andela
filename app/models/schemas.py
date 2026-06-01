@@ -11,7 +11,7 @@ Typical usage::
     from app.models.schemas import LogEntryCreate, IngestRequest, LogLevel
 
     entry = LogEntryCreate(
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         service="api-gateway",
         level=LogLevel.ERROR,
         message="Connection timeout",
