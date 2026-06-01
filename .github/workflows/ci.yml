@@ -1,4 +1,4 @@
-name: CI — Tests & Linting
+name: CI - Tests and Linting
 
 on:
   push:
