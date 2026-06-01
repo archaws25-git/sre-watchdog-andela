@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from app.config import Settings
-from app.models.db_models import AlertRecord, AnomalyWindow
+from app.models.db_models import AnomalyWindow
 from app.models.schemas import SeverityLabel
 from app.services.alert_service import dispatch, is_in_cooldown, map_severity
 

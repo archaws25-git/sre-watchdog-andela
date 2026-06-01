@@ -1,6 +1,5 @@
 """Integration tests for the analyze endpoint."""
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import pytest

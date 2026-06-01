@@ -292,7 +292,6 @@ class TestLogMessageCapping:
 
         # Verify the prompt only contains the last 5 messages
         call_args = mock_boto.converse.call_args
-        prompt_text = call_args[1]["messages"][0]["content"][0]["text"] if call_args[1] else call_args[0][0]
         # The prompt should contain "Message 15" through "Message 19" but not "Message 0"
         assert "Message 19" in str(call_args)
         assert "Message 0" not in str(call_args)

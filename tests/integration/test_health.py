@@ -81,9 +81,6 @@ class TestHealthEndpoint:
 
             response = test_client.get("/health")
 
-            # Restore
-            from app.database import get_db
-            from tests.conftest import get_test_settings
             # The test_client fixture will clean up overrides
 
         assert response.status_code == 503

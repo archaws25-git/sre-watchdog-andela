@@ -9,14 +9,11 @@ These tests complement the integration tests in ``test_analyze_e2e.py`` which
 validate the full HTTP → BackgroundTask → completion flow.
 """
 
-import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-import respx
-from httpx import Response
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -328,7 +325,7 @@ class TestRunGate2ForJob:
             SimpleNamespace(message="Error 2"),
         ]
 
-        result = _run_gate2_for_job(
+        _run_gate2_for_job(
             anomaly_window=window,
             log_entries=log_entries,
             settings=settings,

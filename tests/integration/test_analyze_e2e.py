@@ -14,7 +14,6 @@ This validates the HTTP contract AND the background task execution together,
 covering the ``_run_analysis_job`` code path through the real HTTP layer.
 """
 
-import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -27,8 +26,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import Settings, get_settings
 from app.database import Base, get_db
 from app.main import app
-from app.models.db_models import AnomalyWindow, LogEntry
-from app.services.bedrock_client import BedrockAnalysisResult
+from app.models.db_models import LogEntry
 
 # ---------------------------------------------------------------------------
 # Constants

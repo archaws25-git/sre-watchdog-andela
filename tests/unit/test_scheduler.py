@@ -5,7 +5,6 @@ factory/lifecycle functions without actually starting a real APScheduler
 background thread.
 """
 
-from datetime import timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
