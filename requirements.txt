@@ -33,3 +33,6 @@ respx==0.21.1
 
 # Type checking
 mypy==1.11.2
+
+# Linting
+flake8==7.1.1
