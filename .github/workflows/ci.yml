@@ -44,4 +44,4 @@ jobs:
         run: pytest -m "not live_bedrock" --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=80
 
       - name: Verify app imports cleanly
-        run: python -c "from app.main import app; print(f'Routes: {len(app.routes)}')"
+        run: python -c "from app.main import app; print('Routes:', len(app.routes))"
