@@ -51,7 +51,7 @@ pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=80
 
 ## Test Coverage Report (as of 2026-06-01)
 
-**Total: 89.81% coverage — 85 tests passed**
+**Total: 95.78% coverage — 119 tests passed, 3 warnings**
 
 | Module | Stmts | Miss | Branch | BrPart | Cover |
 |--------|-------|------|--------|--------|-------|
@@ -65,31 +65,35 @@ pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=80
 | `app/routers/analyze.py` | 107 | 0 | 16 | 0 | **100%** |
 | `app/routers/anomalies.py` | 24 | 1 | 6 | 1 | 93% |
 | `app/routers/dashboard.py` | 22 | 0 | 0 | 0 | **100%** |
-| `app/routers/health.py` | 27 | 6 | 6 | 2 | 70% |
+| `app/routers/health.py` | 27 | 0 | 6 | 0 | **100%** |
 | `app/routers/logs.py` | 33 | 2 | 10 | 2 | 91% |
 | `app/routers/metrics.py` | 16 | 0 | 0 | 0 | **100%** |
 | `app/routers/webhooks.py` | 17 | 0 | 0 | 0 | **100%** |
-| `app/scheduler.py` | 41 | 15 | 2 | 0 | 60% |
+| `app/scheduler.py` | 41 | 0 | 2 | 0 | **100%** |
 | `app/services/alert_service.py` | 66 | 0 | 16 | 0 | **100%** |
 | `app/services/anomaly_detector.py` | 91 | 15 | 14 | 2 | 84% |
 | `app/services/bedrock_client.py` | 109 | 6 | 16 | 3 | 93% |
-| `app/services/dashboard_service.py` | 54 | 14 | 20 | 3 | 66% |
-| `app/services/log_ingestion_service.py` | 41 | 12 | 6 | 1 | 72% |
-| **TOTAL** | **969** | **83** | **120** | **16** | **90%** |
+| `app/services/dashboard_service.py` | 54 | 0 | 20 | 0 | **100%** |
+| `app/services/log_ingestion_service.py` | 41 | 0 | 6 | 0 | **100%** |
+| **TOTAL** | **969** | **36** | **120** | **10** | **96%** |
 
 ### Coverage Highlights
 
-- **Critical paths at 93–100%:** `alert_service.py` (100%), `bedrock_client.py` (93%), `anomaly_detector.py` (84%)
-- **All routers at 70–100%:** `analyze.py` now at **100%** (up from 49%) after adding direct background task unit tests and end-to-end integration tests
-- **Supporting modules at 60–81%:** `scheduler.py` (60%, not started in tests by design), `database.py` (81%)
+- **16 modules at 100%** — config, middleware, schemas, all routers (alerts, analyze, dashboard, health, metrics, webhooks), scheduler, alert_service, dashboard_service, log_ingestion_service
+- **Critical paths at 84–100%:** `alert_service.py` (100%), `bedrock_client.py` (93%), `anomaly_detector.py` (84%)
+- **Overall: 95.78%** — exceeds the 80% floor by a wide margin
 
-### Modules Below Target (Documented Reasons)
+### Modules Below 100% (Documented Reasons)
 
-| Module | Coverage | Reason |
-|--------|----------|--------|
-| `scheduler.py` | 60% | APScheduler is deliberately not started in tests. Gate 1/2 functions are tested directly for deterministic results. |
-| `dashboard_service.py` | 66% | Chart data aggregation queries are exercised via the dashboard endpoint test but the 24-hour bucketing logic has limited coverage due to time-dependent data. |
-| `health.py` | 70% | The DB-unreachable 503 path requires mocking the SQLAlchemy engine at a low level; the happy path is fully covered. |
+| Module | Coverage | Uncovered Lines | Reason |
+|--------|----------|-----------------|--------|
+| `database.py` | 81% | 98–102 | The `get_db()` generator's `finally` block — exercised at runtime but not measured by coverage due to generator lifecycle |
+| `main.py` | 90% | 101–105, 112 | Lifespan shutdown logging and the `stale_count > 0` branch (no stale records in test DB) |
+| `db_models.py` | 93% | 65, 133, 186, 219 | `__repr__` methods — never called in tests (cosmetic, not logic) |
+| `anomaly_detector.py` | 84% | 190–193, 236–249, 259–267 | Gate 2 cooldown suppression path when called from the scheduler tick (tested via `analyze.py` route instead) |
+| `bedrock_client.py` | 93% | 204–206, 340, 405–406 | Token extraction fallback path and health update when `app_state` is None |
+| `anomalies.py` | 93% | 50 | Status filter query branch (tested via service filter instead) |
+| `logs.py` | 91% | 115, 117 | `start_time`/`end_time` filter branches (tested via service/level filters) |
 
 ---
 
