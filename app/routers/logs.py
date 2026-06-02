@@ -25,6 +25,7 @@ from app.models.schemas import (
     IngestRequest,
     IngestResponse,
     LogEntryResponse,
+    LogLevel,
     PaginatedLogsResponse,
 )
 from app.services import log_ingestion_service
@@ -32,7 +33,29 @@ from app.services import log_ingestion_service
 router = APIRouter(prefix="/logs", tags=["logs"])
 
 
-@router.post("/ingest", response_model=IngestResponse)
+@router.post(
+    "/ingest",
+    response_model=IngestResponse,
+    summary="Ingest log entries",
+    responses={
+        413: {
+            "description": "Batch exceeds MAX_INGEST_BATCH_SIZE",
+            "content": {
+                "application/json": {
+                    "example": {"error": "Batch too large", "limit": 500, "received": 501}
+                }
+            },
+        },
+        429: {
+            "description": "Rate limit exceeded",
+            "content": {
+                "application/json": {
+                    "example": {"error": "Rate limit exceeded", "detail": "60 per 1 minute"}
+                }
+            },
+        },
+    },
+)
 @limiter.limit("60/minute")
 def ingest_logs(
     request: Request,
@@ -73,7 +96,7 @@ def ingest_logs(
     )
 
 
-@router.get("", response_model=PaginatedLogsResponse)
+@router.get("", response_model=PaginatedLogsResponse, summary="Query stored log entries")
 def get_logs(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(
@@ -128,12 +151,12 @@ def get_logs(
 
     data = [
         LogEntryResponse(
-            id=entry.id,
-            timestamp=datetime.fromisoformat(entry.timestamp),
-            service=entry.service,
-            level=entry.level,
-            message=entry.message,
-            ingested_at=datetime.fromisoformat(entry.ingested_at),
+            id=int(entry.id),  # type: ignore[arg-type]
+            timestamp=datetime.fromisoformat(str(entry.timestamp)),
+            service=str(entry.service),
+            level=LogLevel(str(entry.level)),
+            message=str(entry.message),
+            ingested_at=datetime.fromisoformat(str(entry.ingested_at)),
         )
         for entry in entries
     ]

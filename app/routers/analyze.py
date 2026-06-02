@@ -66,7 +66,13 @@ ERROR_LEVELS: set = {"ERROR", "CRITICAL"}
 # ---------------------------------------------------------------------------
 
 
-@router.post("/analyze", status_code=202, response_model=AnalyzeResponse)
+@router.post(
+    "/analyze",
+    status_code=202,
+    response_model=AnalyzeResponse,
+    summary="Trigger on-demand analysis",
+    responses={429: {"description": "Rate limit exceeded"}},
+)
 @limiter.limit("10/minute")
 def create_analyze_job(
     body: AnalyzeRequest,
@@ -119,7 +125,21 @@ def create_analyze_job(
     return AnalyzeResponse(job_id=job_id, status=AnalyzeJobStatus.PENDING)
 
 
-@router.get("/analyze/{job_id}", response_model=AnalyzeJobResult)
+@router.get(
+    "/analyze/{job_id}",
+    response_model=AnalyzeJobResult,
+    summary="Poll analysis job status",
+    responses={
+        404: {
+            "description": "Job not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Job abc123 not found"}
+                }
+            },
+        }
+    },
+)
 def get_analyze_job(job_id: str, request: Request) -> AnalyzeJobResult:
     """Retrieve the current status and results of an analysis job.
 

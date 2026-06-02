@@ -349,3 +349,42 @@ def cleanup_stale_pending(db: Session) -> int:
         )
 
     return stale_count
+
+
+def purge_credential_failures(db: Session) -> int:
+    """Purge analysis_failed records caused by missing AWS credentials.
+
+    Called at startup when valid credentials are detected. Removes anomaly
+    records that failed solely due to credential issues, since they have no
+    diagnostic value once credentials are restored.
+
+    Args:
+        db: An active SQLAlchemy session for the cleanup operation.
+
+    Returns:
+        The number of records purged.
+    """
+    from sqlalchemy import or_
+
+    purged = (
+        db.query(AnomalyWindow)
+        .filter(
+            AnomalyWindow.status == "analysis_failed",
+            or_(
+                AnomalyWindow.failure_reason.like("%credential%"),
+                AnomalyWindow.failure_reason.like("%ExpiredToken%"),
+                AnomalyWindow.failure_reason.like("%security token%"),
+                AnomalyWindow.failure_reason.like("%Access Denied%"),
+            ),
+        )
+        .delete(synchronize_session=False)
+    )
+
+    if purged > 0:
+        db.commit()
+        logger.info(
+            f'{{"event": "credential_failures_purged", '
+            f'"records_purged": {purged}}}'
+        )
+
+    return purged

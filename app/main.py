@@ -26,7 +26,7 @@ from app.middleware import RequestLoggingMiddleware
 from app.rate_limit import limiter
 from app.routers import alerts, analyze, anomalies, dashboard, health, logs, metrics, webhooks
 from app.scheduler import create_scheduler, start_scheduler, stop_scheduler
-from app.services.anomaly_detector import cleanup_stale_pending
+from app.services.anomaly_detector import cleanup_stale_pending, purge_credential_failures
 from app.services.bedrock_client import BedrockClient
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,15 @@ async def lifespan(app: FastAPI):
             logger.info(
                 f'"Startup cleanup: marked {stale_count} stale records as analysis_failed"'
             )
+
+        # Purge credential-related analysis_failed records if credentials are now valid
+        if credentials is not None:
+            credential_purged = purge_credential_failures(db)
+            if credential_purged > 0:
+                logger.info(
+                    f'"Startup cleanup: purged {credential_purged} credential-related'
+                    f' analysis_failed records"'
+                )
     finally:
         db.close()
 
@@ -147,7 +156,70 @@ async def lifespan(app: FastAPI):
 # Application instance
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="SRE Watchdog", lifespan=lifespan)
+tags_metadata = [
+    {
+        "name": "logs",
+        "description": (
+            "Log ingestion and retrieval. Accepts batches of structured"
+            " log entries and provides paginated queries with filtering."
+        ),
+    },
+    {
+        "name": "anomalies",
+        "description": (
+            "Anomaly window lifecycle records. Each record tracks"
+            " detection through Bedrock AI analysis to alert dispatch"
+            " or suppression."
+        ),
+    },
+    {
+        "name": "analyze",
+        "description": (
+            "On-demand anomaly analysis jobs. Triggers AWS Bedrock AI"
+            " analysis and provides asynchronous job status polling."
+        ),
+    },
+    {
+        "name": "alerts",
+        "description": (
+            "Webhook alert dispatch log. Every alert attempt"
+            " (sent, failed, suppressed) is recorded for audit."
+        ),
+    },
+    {
+        "name": "health",
+        "description": (
+            "Platform health checks including database connectivity"
+            " and cached AWS Bedrock status."
+        ),
+    },
+    {
+        "name": "metrics",
+        "description": "Operational counters derived from live database queries.",
+    },
+    {
+        "name": "webhooks",
+        "description": "Internal webhook echo endpoint for testing alert dispatch without an external target.",
+    },
+    {
+        "name": "dashboard",
+        "description": "Server-side rendered HTML dashboard with Chart.js visualizations.",
+    },
+]
+
+app = FastAPI(
+    title="SRE Watchdog API",
+    description=(
+        "AI-powered Intelligent Observability & Event Watchdog for Site Reliability Engineering teams. "
+        "Ingests structured logs, detects anomalies via a two-gate statistical + AI pipeline (AWS Bedrock), "
+        "dispatches webhook alerts, and visualizes service health trends."
+    ),
+    version="1.0.0",
+    contact={"name": "SRE Watchdog", "url": "https://github.com/archaws25-git/sre-watchdog-andela"},
+    license_info={"name": "MIT", "identifier": "MIT"},
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
 
 # --- Rate Limiter ---
 app.state.limiter = limiter

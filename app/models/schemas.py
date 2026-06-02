@@ -138,6 +138,19 @@ class LogEntryCreate(BaseModel):
         message: Human-readable log message text.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "timestamp": "2026-05-20T14:30:00Z",
+                    "service": "api-gateway",
+                    "level": "ERROR",
+                    "message": "Connection timeout after 5000ms to auth-service",
+                }
+            ]
+        }
+    }
+
     timestamp: datetime
     service: str
     level: LogLevel
@@ -188,6 +201,29 @@ class IngestRequest(BaseModel):
             controlled by MAX_INGEST_BATCH_SIZE.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "entries": [
+                        {
+                            "timestamp": "2026-05-20T14:30:00Z",
+                            "service": "api-gateway",
+                            "level": "ERROR",
+                            "message": "Upstream timeout",
+                        },
+                        {
+                            "timestamp": "2026-05-20T14:30:01Z",
+                            "service": "auth-service",
+                            "level": "INFO",
+                            "message": "Token validated",
+                        },
+                    ]
+                }
+            ]
+        }
+    }
+
     entries: List[LogEntryCreate]
 
 
@@ -199,6 +235,14 @@ class IngestResponse(BaseModel):
         rejected: Number of entries that failed validation.
         errors: List of human-readable error descriptions for rejected entries.
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"accepted": 498, "rejected": 2, "errors": ["Entry 12: level: Invalid enum value"]}
+            ]
+        }
+    }
 
     accepted: int
     rejected: int
@@ -281,6 +325,14 @@ class AnalyzeRequest(BaseModel):
         start_time: Start of the analysis time range (ISO 8601).
         end_time: End of the analysis time range (ISO 8601).
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"service": "payment-service", "start_time": "2026-05-20T13:00:00Z", "end_time": "2026-05-20T14:00:00Z"}
+            ]
+        }
+    }
 
     service: Optional[str] = None
     start_time: datetime
@@ -380,6 +432,22 @@ class HealthResponse(BaseModel):
         bedrock: Detailed Bedrock integration health.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "ok",
+                    "database": "ok",
+                    "bedrock": {
+                        "status": "ok",
+                        "last_checked_at": "2026-05-20T14:30:00Z",
+                        "message": "Last inference call succeeded",
+                    },
+                }
+            ]
+        }
+    }
+
     status: str
     database: str
     bedrock: BedrockHealthDetail
@@ -403,6 +471,21 @@ class MetricsResponse(BaseModel):
         total_analysis_failed: Total anomalies with status='analysis_failed'.
         total_cooldown_suppressed: Total anomalies with status='suppressed'.
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "total_logs_ingested": 10000,
+                    "total_anomalies_detected": 15,
+                    "total_alerts_dispatched": 8,
+                    "total_failed_alerts": 1,
+                    "total_analysis_failed": 3,
+                    "total_cooldown_suppressed": 3,
+                }
+            ]
+        }
+    }
 
     total_logs_ingested: int
     total_anomalies_detected: int

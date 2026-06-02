@@ -11,6 +11,7 @@ from app.models.db_models import AnomalyWindow, LogEntry
 from app.services.anomaly_detector import (
     cleanup_stale_pending,
     evaluate_all_services,
+    purge_credential_failures,
     run_gate2,
 )
 from app.services.bedrock_client import BedrockAnalysisResult, BedrockParseError
@@ -314,3 +315,124 @@ class TestGate2:
         assert updated_window.status == "analysis_failed"
         assert "BedrockParseError" in updated_window.failure_reason
         mock_dispatch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests: purge_credential_failures
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPurgeCredentialFailures:
+    """Tests for credential-related failure purge on startup."""
+
+    def test_purges_credential_failure_records(self, test_db):
+        """Records with 'credential' in failure_reason are deleted."""
+        now = datetime.now(timezone.utc).isoformat()
+        # Create a credential-failure record
+        window = AnomalyWindow(
+            service="api-gateway",
+            window_start=now,
+            window_end=now,
+            error_rate=0.5,
+            status="analysis_failed",
+            failure_reason="Unable to locate credentials",
+            created_at=now,
+            updated_at=now,
+        )
+        test_db.add(window)
+        test_db.commit()
+
+        count = purge_credential_failures(test_db)
+
+        assert count == 1
+        remaining = test_db.query(AnomalyWindow).all()
+        assert len(remaining) == 0
+
+    def test_purges_expired_token_records(self, test_db):
+        """Records with 'ExpiredToken' in failure_reason are deleted."""
+        now = datetime.now(timezone.utc).isoformat()
+        window = AnomalyWindow(
+            service="database-proxy",
+            window_start=now,
+            window_end=now,
+            error_rate=0.5,
+            status="analysis_failed",
+            failure_reason="An error occurred (ExpiredTokenException) when calling the Converse operation: The security token included in the request is expired",
+            created_at=now,
+            updated_at=now,
+        )
+        test_db.add(window)
+        test_db.commit()
+
+        count = purge_credential_failures(test_db)
+
+        assert count == 1
+        remaining = test_db.query(AnomalyWindow).all()
+        assert len(remaining) == 0
+
+    def test_does_not_purge_non_credential_failures(self, test_db):
+        """Records with other failure reasons are NOT deleted."""
+        now = datetime.now(timezone.utc).isoformat()
+        window = AnomalyWindow(
+            service="api-gateway",
+            window_start=now,
+            window_end=now,
+            error_rate=0.5,
+            status="analysis_failed",
+            failure_reason="BedrockParseError: Invalid JSON",
+            created_at=now,
+            updated_at=now,
+        )
+        test_db.add(window)
+        test_db.commit()
+
+        count = purge_credential_failures(test_db)
+
+        assert count == 0
+        remaining = test_db.query(AnomalyWindow).all()
+        assert len(remaining) == 1
+
+    def test_does_not_purge_non_failed_records(self, test_db):
+        """Records with status != 'analysis_failed' are NOT deleted."""
+        now = datetime.now(timezone.utc).isoformat()
+        window = AnomalyWindow(
+            service="api-gateway",
+            window_start=now,
+            window_end=now,
+            error_rate=0.5,
+            status="confirmed",
+            failure_reason=None,
+            created_at=now,
+            updated_at=now,
+        )
+        test_db.add(window)
+        test_db.commit()
+
+        count = purge_credential_failures(test_db)
+
+        assert count == 0
+        remaining = test_db.query(AnomalyWindow).all()
+        assert len(remaining) == 1
+
+    def test_purges_multiple_credential_failures(self, test_db):
+        """Multiple credential-failure records are all purged."""
+        now = datetime.now(timezone.utc).isoformat()
+        for svc in ["api-gateway", "auth-service", "payment-service"]:
+            test_db.add(AnomalyWindow(
+                service=svc,
+                window_start=now,
+                window_end=now,
+                error_rate=0.5,
+                status="analysis_failed",
+                failure_reason="Unable to locate credentials",
+                created_at=now,
+                updated_at=now,
+            ))
+        test_db.commit()
+
+        count = purge_credential_failures(test_db)
+
+        assert count == 3
+        remaining = test_db.query(AnomalyWindow).all()
+        assert len(remaining) == 0

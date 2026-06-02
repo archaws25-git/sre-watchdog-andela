@@ -11,18 +11,19 @@ Typical usage::
 """
 
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.db_models import AlertRecord
-from app.models.schemas import AlertRecordResponse
+from app.models.schemas import AlertDispatchStatus, AlertRecordResponse, SeverityLabel
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
-@router.get("", response_model=list[AlertRecordResponse])
+@router.get("", response_model=list[AlertRecordResponse], summary="List alert dispatch records")
 def get_alerts(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(
@@ -55,14 +56,14 @@ def get_alerts(
 
     return [
         AlertRecordResponse(
-            id=record.id,
-            anomaly_id=record.anomaly_id,
-            dispatched_at=record.dispatched_at,
-            webhook_url=record.webhook_url,
-            payload=json.loads(record.payload),
-            http_status=record.http_status,
-            dispatch_status=record.dispatch_status,
-            severity=record.severity,
+            id=int(record.id),  # type: ignore[arg-type]
+            anomaly_id=int(record.anomaly_id),  # type: ignore[arg-type]
+            dispatched_at=datetime.fromisoformat(str(record.dispatched_at)),
+            webhook_url=str(record.webhook_url),
+            payload=json.loads(str(record.payload)),
+            http_status=int(record.http_status) if record.http_status else None,
+            dispatch_status=AlertDispatchStatus(str(record.dispatch_status)),
+            severity=SeverityLabel(str(record.severity)),
         )
         for record in records
     ]

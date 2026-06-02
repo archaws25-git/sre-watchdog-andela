@@ -21,7 +21,7 @@ from app.models.schemas import AnomalyWindowResponse
 router = APIRouter()
 
 
-@router.get("/anomalies", response_model=List[AnomalyWindowResponse])
+@router.get("/anomalies", response_model=List[AnomalyWindowResponse], summary="List anomaly windows")
 def list_anomalies(
     service: Optional[str] = Query(default=None, description="Filter by service name."),
     status: Optional[str] = Query(default=None, description="Filter by anomaly lifecycle status."),
@@ -57,7 +57,21 @@ def list_anomalies(
     return results
 
 
-@router.get("/anomalies/{id}", response_model=AnomalyWindowResponse)
+@router.get(
+    "/anomalies/{id}",
+    response_model=AnomalyWindowResponse,
+    summary="Get anomaly detail",
+    responses={
+        404: {
+            "description": "Anomaly not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Anomaly window not found"}
+                }
+            },
+        }
+    },
+)
 def get_anomaly(
     id: int,
     db: Session = Depends(get_db),
