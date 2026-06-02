@@ -358,7 +358,11 @@ class TestPurgeCredentialFailures:
             window_end=now,
             error_rate=0.5,
             status="analysis_failed",
-            failure_reason="An error occurred (ExpiredTokenException) when calling the Converse operation: The security token included in the request is expired",
+            failure_reason=(
+                "An error occurred (ExpiredTokenException) when calling the"
+                " Converse operation: The security token included in the"
+                " request is expired"
+            ),
             created_at=now,
             updated_at=now,
         )
