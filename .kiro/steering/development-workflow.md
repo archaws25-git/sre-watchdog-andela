@@ -3,6 +3,8 @@
 inclusion: auto
 
 ## Running the Application
+- **If a .venv folder is not present in the project directory**, in a Powershell terminal, create virtual environment using the bash command `python -m venv .venv`
+- **Always activate the virtual environment first** using the following command in a Powershell terminal: .venv\Scripts\Activate.ps1 
 
 ```bash
 # Activate virtual environment
@@ -17,7 +19,7 @@ $Env:AWS_SESSION_TOKEN="..."  # if using temporary credentials
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 # Access dashboard
-# http://127.0.0.1:8000/dashboard
+http://127.0.0.1:8000/dashboard
 ```
 
 ## Generating Test Data
@@ -31,10 +33,10 @@ python generate_logs.py
 ## Running Tests
 
 ```bash
-pytest                    # Full suite with coverage
-pytest -m unit            # Unit tests only
-pytest -m integration     # Integration tests only
-pytest -v                 # Verbose output
+.venv\Scripts\python.exe -m pytest                    # Full suite with coverage
+.venv\Scripts\python.exe -m pytest unit            # Unit tests only
+.venv\Scripts\python.exe -m pytest integration     # Integration tests only
+.venv\Scripts\python.exe -m pytest -v                 # Verbose output
 ```
 
 ## Linting

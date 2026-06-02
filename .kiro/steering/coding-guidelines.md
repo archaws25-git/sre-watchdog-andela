@@ -3,7 +3,8 @@
 inclusion: auto
 
 ## Python Style
-
+- **If a .venv folder is not present in the project directory**, in a Powershell terminal, create virtual environment using the bash command `python -m venv .venv`
+- **Always activatethe virtual environment first** using the following command in a Powershell terminal: .venv\Scripts\Activate.ps1 
 - Python 3.11+ features allowed (type unions with `|`, match statements)
 - Max line length: 120 characters (configured in .flake8)
 - Use type hints on all function signatures

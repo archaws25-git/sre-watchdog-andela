@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Security Scan on new file creation or functionality change",
+  "description": "Use the Python package bandit when Python code files are newly creatd or modified following security best practices",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [ "**/*.py"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A Python code file has been modified. Please:\n1. Run bandit software package for Python"
+  }
+}
