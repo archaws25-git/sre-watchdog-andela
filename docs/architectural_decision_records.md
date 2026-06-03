@@ -229,3 +229,30 @@ The purge is implemented in `app/services/anomaly_detector.py::purge_credential_
 - **Positive:** Only credential-related failures are purged — genuine analysis failures (BedrockParseError, timeout) are preserved.
 - **Negative:** Loses the audit trail of when credentials were missing. Acceptable because the `/metrics` counter `total_analysis_failed` still reflects the historical count, and structured logs capture the events.
 - **Negative:** If credentials appear valid at startup but fail at runtime (e.g., Bedrock model access not enabled), those failures accumulate until the next restart with truly valid credentials.
+
+
+---
+
+## ADR-019: Performance Optimization — SQL-Level Aggregation
+
+### Context
+
+The dashboard and detection pipeline had significant query-count issues:
+- `get_chart_data()` executed 240 individual COUNT queries (5 services × 24 hourly buckets × 2 queries each)
+- `get_recent_alerts()` executed N+1 queries (1 list query + N individual anomaly lookups for service names)
+- `evaluate_all_services()` loaded ALL log entries for each service into memory via `.all()`, then counted in Python
+
+These patterns would degrade rapidly with data growth (10K+ entries per service).
+
+### Decision
+
+1. **Chart data:** Replace 240 queries with a single `GROUP BY service, hour_bucket` aggregation query using `func.substr(timestamp, 1, 13)` for hour bucketing and `case()` for conditional error counting.
+2. **Recent alerts:** Replace N+1 with a single `outerjoin` query fetching `AlertRecord` + `AnomalyWindow.service` in one pass.
+3. **Gate 1 detection:** Replace `.all()` + Python `sum()` with two SQL-level `func.count()` queries per service (total count + error count).
+
+### Consequences
+
+- **Positive:** Dashboard load reduced from ~261 queries to ~3. Page render time drops significantly.
+- **Positive:** Gate 1 tick no longer loads all log entries into memory — only executes COUNT queries.
+- **Positive:** Memory usage is constant regardless of data volume.
+- **Negative:** The `GROUP BY` approach with `func.substr` is SQLite-specific. Migration to PostgreSQL would use `date_trunc()` instead. Acceptable for MVP.

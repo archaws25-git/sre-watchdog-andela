@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.db_models import AlertRecord
+from app.models.db_models import AlertRecord, AnomalyWindow
 from app.models.schemas import AlertDispatchStatus, AlertRecordResponse, SeverityLabel
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -46,8 +46,9 @@ def get_alerts(
         List of AlertRecordResponse objects for the requested page.
     """
     offset = (page - 1) * page_size
-    records = (
-        db.query(AlertRecord)
+    rows = (
+        db.query(AlertRecord, AnomalyWindow.service)
+        .outerjoin(AnomalyWindow, AlertRecord.anomaly_id == AnomalyWindow.id)
         .order_by(AlertRecord.dispatched_at.desc())
         .offset(offset)
         .limit(page_size)
@@ -58,6 +59,7 @@ def get_alerts(
         AlertRecordResponse(
             id=int(record.id),  # type: ignore[arg-type]
             anomaly_id=int(record.anomaly_id),  # type: ignore[arg-type]
+            service=service_name or "unknown",
             dispatched_at=datetime.fromisoformat(str(record.dispatched_at)),
             webhook_url=str(record.webhook_url),
             payload=json.loads(str(record.payload)),
@@ -65,5 +67,5 @@ def get_alerts(
             dispatch_status=AlertDispatchStatus(str(record.dispatch_status)),
             severity=SeverityLabel(str(record.severity)),
         )
-        for record in records
+        for record, service_name in rows
     ]

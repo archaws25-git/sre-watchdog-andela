@@ -172,3 +172,16 @@ Available at `/docs` (Swagger UI) and `/redoc` (ReDoc).
 | Post-spec enhancements added | 8 (rate limiting, validation, CI, mypy, bandit, OpenAPI, credential purge, `pyproject.toml`) |
 | Spec deviations requiring explanation | 6 (model ID, parser, datetime, FK fix, threshold doc error, docs location) |
 | Spec requirements partially met | 1 (testing — exceeds floor but anomaly_detector at 85% not 95%) |
+
+
+---
+
+## 16. Performance Optimizations (Not in Original Spec)
+
+| Aspect | Original Spec (Design Section 5.1) | Actual Implementation |
+|--------|-------------------------------------|----------------------|
+| Gate 1 data loading | "Query log_entries WHERE service=S" (implied full scan) | SQL-level `func.count()` — no ORM objects loaded into memory |
+| Dashboard queries | Not specified | Single GROUP BY aggregation (was 240 queries) |
+| Alert service lookups | Not specified | OUTER JOIN query (was N+1 individual queries) |
+
+These optimizations reduce query count from ~261 to ~3 per dashboard load and eliminate memory pressure during Gate 1 ticks with large datasets.

@@ -382,6 +382,7 @@ class AlertRecordResponse(BaseModel):
     Attributes:
         id: Auto-incremented primary key.
         anomaly_id: Foreign key to the source anomaly window.
+        service: Affected service name (from joined anomaly window).
         dispatched_at: Timestamp of the dispatch attempt.
         webhook_url: Target URL for the webhook POST.
         payload: Full webhook payload as a dictionary.
@@ -393,6 +394,7 @@ class AlertRecordResponse(BaseModel):
 
     id: int
     anomaly_id: int
+    service: str = "unknown"
     dispatched_at: datetime
     webhook_url: str
     payload: dict

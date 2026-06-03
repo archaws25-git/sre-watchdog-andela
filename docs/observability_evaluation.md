@@ -138,6 +138,16 @@ Counters are computed from live database queries rather than in-memory counters.
 
 **Trade-off:** Slightly higher latency per `/metrics` call (SQLite queries). Acceptable for the expected query frequency.
 
+### Performance Optimizations
+
+The following performance optimizations were applied to reduce query counts:
+
+| Component | Before | After | Improvement |
+|-----------|--------|-------|-------------|
+| Dashboard chart data (`get_chart_data`) | 240 queries (5 services × 24 buckets × 2) | 1 GROUP BY aggregation query | 240× reduction |
+| Recent alerts (`get_recent_alerts`) | N+1 queries (1 + 20 individual lookups) | 1 OUTER JOIN query | 21× reduction |
+| Gate 1 error rate (`evaluate_all_services`) | 5 full table scans (loading all ORM objects) | 10 COUNT queries (SQL-level) | Eliminates memory pressure |
+
 ---
 
 ## 4. Bedrock Health Caching
