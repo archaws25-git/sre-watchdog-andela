@@ -72,69 +72,71 @@ def main():
         prs,
         "SRE Watchdog",
         "AI-Powered Intelligent Observability & Event Watchdog\n"
-        "MVP Presentation — May 2026"
+        "MVP Presentation - June 2026"
     )
 
     # Slide 2: Problem Statement
     add_content_slide(prs, "The Problem", [
-        "SRE teams drown in log noise — thousands of entries per minute",
+        "SRE teams drown in log noise - thousands of entries per minute",
         "Manual threshold monitoring misses subtle degradation patterns",
         "Alert fatigue from duplicate/noisy notifications",
-        "No intelligent context in alerts — just raw numbers",
+        "No intelligent context in alerts - just raw numbers",
         "Need: AI-powered anomaly detection with actionable summaries",
     ])
 
     # Slide 3: Solution Overview
     add_content_slide(prs, "The Solution: SRE Watchdog", [
-        "Python FastAPI application with AI-powered log analysis",
+        "Python 3.13 FastAPI application with AI-powered log analysis",
         "Two-gate detection: statistical pre-filter + AWS Bedrock AI",
         "Automatic webhook alerts with severity classification",
         "Real-time dashboard with Chart.js visualizations",
-        "Full audit trail — every detection, analysis, and alert recorded",
-        "12-factor app methodology — all config via environment variables",
+        "Rate limiting, input validation, and security scanning",
+        "95.5% test coverage with CI/CD pipeline",
+        "Dockerized for portable deployment",
     ])
 
     # Slide 4: Architecture
     add_content_slide(prs, "Architecture Overview", [
-        "Gate 1: APScheduler tick → per-service error rate computation",
-        "Gate 2: FastAPI BackgroundTask → Bedrock Converse API (Claude Sonnet 4.6)",
+        "Gate 1: APScheduler tick - SQL-level COUNT for error rate",
+        "Gate 2: FastAPI BackgroundTask - Bedrock Converse API (Claude Sonnet 4.6)",
         "Alert Service: Severity mapping + webhook dispatch with retry",
         "Cooldown: Prevents alert fatigue (15-min suppression window)",
-        "Dashboard: Jinja2 SSR + Chart.js + auto-refresh every 60s",
+        "Rate Limiting: 60/min ingest, 10/min analyze (slowapi)",
+        "Dashboard: Jinja2 SSR + Chart.js + 60s auto-refresh",
         "Storage: SQLite WAL mode for concurrent read/write",
     ])
 
     # Slide 5: Tech Stack
     add_content_slide(prs, "Tech Stack", [
-        "Language: Python 3.11+",
-        "Framework: FastAPI + Uvicorn",
+        "Language: Python 3.13 (Docker) / 3.11+ (local)",
+        "Framework: FastAPI + Uvicorn + slowapi (rate limiting)",
         "AI: AWS Bedrock (Claude Sonnet 4.6 via Converse API)",
         "Database: SQLite with WAL mode (SQLAlchemy ORM)",
         "Scheduling: APScheduler (BackgroundScheduler)",
-        "Dashboard: Jinja2 + Chart.js",
-        "Testing: pytest + hypothesis + freezegun + respx",
+        "Dashboard: Jinja2 + Chart.js (single aggregation query)",
+        "Quality: pytest (95.5%), flake8, mypy, bandit, GitHub Actions CI",
     ])
 
     # Slide 6: Development Timeline
-    add_content_slide(prs, "Development Timeline", [
-        "Phase 1: Requirements & Design (spec-driven development)",
-        "Phase 2: Project scaffold, config, database foundation",
-        "Phase 3: Core services (ingestion, Bedrock client, alert service)",
-        "Phase 4: Anomaly detector (two-gate pipeline) + scheduler",
-        "Phase 5: API routers (8 endpoints) + app wiring",
-        "Phase 6: Dashboard, synthetic log generator, documentation",
-        "Phase 7: Test infrastructure, verification, git setup",
-    ])
+   # add_content_slide(prs, "Development Timeline (~14.5 hours total)", [
+   #     "Session 1 (8.5h): Requirements - Design - Implementation - Debugging",
+   #     "  Phase 1: Spec-driven requirements & design (Turns 1-12)",
+   #     "  Phase 2: Full implementation via task execution (37 min)",
+   #     "  Phase 3: Bedrock integration & model troubleshooting (5h)",
+   #     "Session 2 (6h): Quality - Security - Performance - Docker",
+   #     "  Phase 4: Full test suite (127 tests, 95.5% coverage)",
+   #     "  Phase 5: Rate limiting, validation, CI/CD, Docker, perf fixes",
+   # ])
 
     # Slide 7: Key Features
     add_content_slide(prs, "Key Features Delivered", [
         "10,000 synthetic logs across 5 services (24-hour simulation)",
         "3 seeded anomaly windows: sharp spike, sustained degradation, cascade",
-        "AI-generated anomaly summaries with severity scoring (0.0–1.0)",
+        "AI-generated anomaly summaries with severity scoring (0.0-1.0)",
         "Webhook alerts with 4-band severity (LOW/MEDIUM/HIGH/CRITICAL)",
-        "Cooldown suppression to prevent alert fatigue",
-        "On-demand analysis via POST /analyze + job polling",
-        "11 API endpoints + HTML dashboard",
+        "Cooldown suppression + credential failure auto-purge on restart",
+        "On-demand analysis via POST /analyze + async job polling",
+        "11 API endpoints with OpenAPI/Swagger documentation",
     ])
 
     # Slide 8: Dashboard Screenshot - Overview
@@ -161,22 +163,22 @@ def main():
         "anomaly ID, and dispatch status (sent/suppressed/failed)."
     )
 
-    # Slide 11: Dashboard Screenshot - Run Analysis
+    # Slide 11: Dashboard Screenshot - Swagger UI
     add_screenshot_slide(
         prs,
-        "Dashboard: On-Demand Analysis",
-        "Run Analysis button triggering Bedrock AI analysis across all services. "
-        "Shows loading state and refreshes results on completion."
+        "OpenAPI/Swagger Documentation",
+        "Interactive API docs at /docs with tag groups, request examples, "
+        "response schemas, and error code documentation."
     )
 
     # Slide 12: Detection Pipeline
     add_content_slide(prs, "Detection Pipeline in Action", [
         "1. APScheduler tick fires every 60 seconds",
-        "2. Gate 1: Compute error rate per service (sliding 5-min window)",
+        "2. Gate 1: SQL COUNT per service (no ORM objects loaded)",
         "3. If error_rate > 10%: create AnomalyWindow (pending_analysis)",
         "4. Gate 2: BackgroundTask invokes Bedrock with log context",
-        "5. Bedrock returns anomaly_score (0.0–1.0) + AI summary",
-        "6. If score ≥ 0.5 and no cooldown: dispatch webhook alert",
+        "5. Bedrock returns anomaly_score (0.0-1.0) + AI summary",
+        "6. If score >= 0.5 and no cooldown: dispatch webhook alert",
         "7. Full lifecycle persisted for audit trail",
     ])
 
@@ -184,57 +186,93 @@ def main():
     add_content_slide(prs, "AWS Bedrock AI Integration", [
         "Model: Claude Sonnet 4.6 (us.anthropic.claude-sonnet-4-6)",
         "Prompt: Service context + error rate + log messages (capped at 50)",
-        "Response: JSON with anomaly_score (0.0–1.0) + plain-text summary",
+        "Response: JSON with anomaly_score + plain-text summary",
+        "Parser: Handles both raw JSON and markdown-fenced responses",
         "Retry: Exponential backoff (1s, 2s, 4s) for transient errors",
         "Health caching: /health reports last-known Bedrock status",
-        "Cost control: Gate 1 pre-filter reduces unnecessary API calls",
+        "Cost: ~$0.006 per inference call ($1-18/month typical)",
     ])
 
-    # Slide 14: Challenges & Solutions
+    # Slide 14: Testing & Quality
+    add_content_slide(prs, "Testing & Quality Assurance", [
+        "127 tests (71 unit + 54 integration + 1 property-based + 1 live Bedrock)",
+        "95.5% code coverage with branch coverage enabled",
+        "16 modules at 100% coverage (all critical paths)",
+        "Property-based test: Hypothesis round-trip validation",
+        "Security: bandit SAST scanning (0 High issues)",
+        "Linting: flake8 (zero errors) + mypy (type checking)",
+        "CI/CD: GitHub Actions matrix (Python 3.11/3.12/3.13)",
+    ])
+
+    # Slide 15: Security & Performance
+    add_content_slide(prs, "Security & Performance", [
+        "Rate limiting: 60/min ingest, 10/min analyze (HTTP 429)",
+        "Input validation: service name restricted to 5 known services",
+        "SQL injection: parameterized queries via SQLAlchemy ORM",
+        "Performance: Single GROUP BY query for dashboard (was 240)",
+        "Performance: SQL COUNT for Gate 1 (no ORM objects in memory)",
+        "Performance: OUTER JOIN for alerts (was N+1 queries)",
+        "Startup cleanup: auto-purge credential-failure records",
+    ])
+
+    # Slide 16: Challenges & Solutions
     add_content_slide(prs, "Challenges & Solutions", [
-        "Model ID changes: Iterated through 4 model IDs to find active one",
-        "Response parsing: Model wraps JSON in markdown — added fence stripping",
-        "Cooldown noise: Suppressed records cluttered dashboard — by design for audit",
-        "Concurrent writes: SQLite WAL mode enables BackgroundTask parallelism",
-        "Session credentials: Temporary tokens expire — documented in workflow",
+        "Model ID iteration: 5 attempts to find working Bedrock model",
+        "Response parsing: Claude wraps JSON in markdown fences",
+        "Circular FK: use_alter=True resolves SQLAlchemy DROP warnings",
+        "BackgroundTask testing: Option 1 (direct) + Option 2 (TestClient exit)",
+        "Credential expiry: auto-purge + structured error in dashboard",
+        "Dashboard N+1: OUTER JOIN for service names in alert list",
     ])
 
-    # Slide 15: Code Quality
-    add_content_slide(prs, "Code Quality & Standards", [
-        "48 source files, 7,322 lines of code",
-        "flake8 linting: zero errors (max-line-length=120)",
-        "Google-style docstrings on all public functions",
-        "Module-level docstrings in every Python file",
-        "Structured JSON logging throughout",
-        "Type hints on all function signatures",
-        "Comprehensive .env.example with all 14 configuration variables",
+    # Slide 17: Docker & Deployment
+    add_content_slide(prs, "Docker & Deployment", [
+        "Dockerfile: python:3.13-slim with health check",
+        "Single command: docker run -p 8000:8000 sre-watchdog:latest",
+        "AWS credentials via environment variables",
+        "Dashboard at http://localhost:8000/dashboard",
+        "Swagger UI at http://localhost:8000/docs",
+        "Production path: App Runner or ECS/Fargate + RDS PostgreSQL",
     ])
 
-    # Slide 16: What's Next
+    # Slide 18: What's Next
     add_content_slide(prs, "Production Roadmap", [
         "Authentication: OAuth2/OIDC for dashboard access",
-        "Deployment: Docker + AWS App Runner or ECS/Fargate",
+        "Deployment: AWS App Runner or ECS/Fargate",
+        "Database: Migrate to RDS PostgreSQL (config-only change)",
         "Semantic analysis: S3 Vectors for log embeddings",
         "Cursor-based pagination for high-volume log stores",
-        "Test coverage: Complete the optional test suite (target 80%+)",
-        "Monitoring: CloudWatch integration for self-observability",
+        "OpenTelemetry: Distributed tracing integration",
+        "Prometheus: /metrics in standard exposition format",
     ])
 
-    # Slide 17: Demo
+    # Slide 19: Project Statistics
+    add_content_slide(prs, "Project Statistics", [
+        "Total time: ~14.5 hours (within 16-hour window)",
+        "Code generation (all tasks): 37 minutes",
+        "Source files: 25 app modules + 16 test files",
+        "Test coverage: 95.5% (127 tests passing)",
+        "Documentation: 10 markdown files + spec deviations",
+        "API: 11 endpoints with OpenAPI examples",
+        "Security: 0 High bandit findings, rate-limited",
+    ])
+
+    # Slide 20: Demo
     add_content_slide(prs, "Live Demo", [
-        "1. Start server: uvicorn app.main:app --reload",
-        "2. Generate logs: python generate_logs.py",
-        "3. Open dashboard: http://localhost:8000/dashboard",
-        "4. Click 'Run Analysis' — watch Bedrock AI in action",
+        "1. docker run -p 8000:8000 sre-watchdog:latest",
+        "2. python generate_logs.py (10K logs, 3 anomaly windows)",
+        "3. Open http://localhost:8000/dashboard",
+        "4. Click 'Run Analysis' - watch Bedrock AI in action",
         "5. Observe: anomaly scores, AI summaries, alert dispatch",
-        "6. Check /health, /metrics, /anomalies endpoints",
+        "6. Check /docs (Swagger), /health, /metrics",
     ])
 
-    # Slide 18: Thank You
+    # Slide 21: Thank You
     add_title_slide(
         prs,
         "Thank You",
-        "SRE Watchdog — AI-Powered Observability\n"
+        "SRE Watchdog - AI-Powered Observability\n"
+        "GitHub: github.com/archaws25-git/sre-watchdog-andela\n"
         "Questions?"
     )
 
