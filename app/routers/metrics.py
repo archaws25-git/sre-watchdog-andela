@@ -21,7 +21,7 @@ from app.models.schemas import MetricsResponse
 router = APIRouter(tags=["metrics"])
 
 
-@router.get("/metrics", response_model=MetricsResponse)
+@router.get("/metrics", response_model=MetricsResponse, summary="Operational counters")
 def get_metrics(
     db: Session = Depends(get_db),
 ) -> MetricsResponse:

@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Auto Test on Save",
+  "description": "Automatically run tests when Python files are saved",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A code file has been saved. Run the appropriate tests for this file and report any failures. If this is a test file, run it directly with filtering (--grep, --testNamePattern). If this is a source file, find and run related tests. Use commands like: pytest -k 'test_name' to run a single testcase OR use ."
+  }
+}

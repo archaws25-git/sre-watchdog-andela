@@ -129,10 +129,12 @@ All API inputs are validated via Pydantic schemas before processing:
 
 | Endpoint | Validation |
 |----------|-----------|
-| `POST /logs/ingest` | Schema validation per entry; batch size limit (500) |
+| `POST /logs/ingest` | Schema validation per entry; batch size limit (500); service name must be one of 5 known services |
 | `GET /logs` | Query parameter types and ranges (`page` ≥ 1, `page_size` 1–500) |
 | `POST /analyze` | ISO 8601 timestamps; optional service name from allowed list |
 | `POST /webhooks/echo` | Any valid JSON body accepted (echo endpoint) |
+
+**Service name validation:** The `LogEntryCreate.service` field uses a Pydantic `field_validator` to reject any service name not in the allowed set: `api-gateway`, `auth-service`, `payment-service`, `notification-service`, `database-proxy`. Unknown services receive HTTP 422 with a structured error body identifying the invalid field.
 
 **Validation failures:** Return HTTP 422 with structured error body identifying invalid fields.
 
@@ -152,7 +154,39 @@ All API inputs are validated via Pydantic schemas before processing:
 
 ---
 
-## 5. Dependency Security
+## 5. Rate Limiting
+
+The SRE Watchdog uses `slowapi` (built on top of `limits`) for per-IP rate limiting on write endpoints. The limiter is configured in `app/rate_limit.py`.
+
+### Rate Limits
+
+| Endpoint | Limit | Rationale |
+|----------|-------|-----------|
+| `POST /logs/ingest` | 60 requests/minute per IP | Prevents log flooding and resource exhaustion |
+| `POST /analyze` | 10 requests/minute per IP | Protects expensive Bedrock API calls from abuse |
+
+### HTTP 429 Response Format
+
+When a rate limit is exceeded, the API returns HTTP 429 with a structured JSON error body:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "detail": "Rate limit exceeded: 60 per 1 minute",
+  "retry_after": 42
+}
+```
+
+### Implementation Details
+
+- **Library:** `slowapi==0.1.9` (wraps `limits` and `starlette`)
+- **Key function:** Rate limits are keyed by client IP address (`request.client.host`)
+- **State:** In-memory rate limit state (resets on application restart)
+- **Logging:** A WARNING-level log is emitted when a rate limit is hit
+
+---
+
+## 6. Dependency Security
 
 ### Pinned Dependencies
 
@@ -177,7 +211,7 @@ All dependencies are pinned to exact versions in `requirements.txt` to prevent s
 
 ---
 
-## 6. Logging Security
+## 7. Logging Security
 
 ### What Is Logged
 
@@ -201,7 +235,7 @@ All dependencies are pinned to exact versions in `requirements.txt` to prevent s
 
 ---
 
-## 7. Network Security (Production)
+## 8. Network Security (Production)
 
 | Layer | Control |
 |-------|---------|

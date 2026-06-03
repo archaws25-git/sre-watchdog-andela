@@ -23,7 +23,7 @@ from app.models.schemas import WebhookEchoResponse
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 
-@router.post("/echo", response_model=WebhookEchoResponse)
+@router.post("/echo", response_model=WebhookEchoResponse, summary="Echo webhook payload")
 async def webhook_echo(
     request: Request,
     db: Session = Depends(get_db),
@@ -51,6 +51,6 @@ async def webhook_echo(
     db.refresh(echo_record)
 
     return WebhookEchoResponse(
-        received_at=datetime.fromisoformat(echo_record.received_at),
+        received_at=datetime.fromisoformat(str(echo_record.received_at)),
         payload=body,
     )

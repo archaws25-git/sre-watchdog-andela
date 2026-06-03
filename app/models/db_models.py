@@ -109,7 +109,7 @@ class AnomalyWindow(Base):
     suppression_reason = Column(Text, nullable=True)
     ai_summary = Column(Text, nullable=True)
     failure_reason = Column(Text, nullable=True)
-    alert_id = Column(Integer, ForeignKey("alert_records.id"), nullable=True)
+    alert_id = Column(Integer, ForeignKey("alert_records.id", use_alter=True), nullable=True)
     created_at = Column(
         Text,
         nullable=False,

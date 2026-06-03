@@ -89,6 +89,8 @@ aws_access_key_id = your-access-key
 aws_secret_access_key = your-secret-key
 ```
 
+> **Important:** When running the server process (especially with background tasks like the APScheduler detection loop), AWS credentials must be available as environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optionally `AWS_SESSION_TOKEN`). Background processes may not inherit credential file resolution from `~/.aws/credentials` depending on how the process is launched. Setting credentials as environment variables ensures reliable access across all execution contexts.
+
 ---
 
 ## 2. Docker Containerization (Future)
@@ -257,7 +259,7 @@ SQLAlchemy's database URL abstraction means only the `DATABASE_URL` environment 
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLite/PostgreSQL connection string | `sqlite:///./sre_watchdog.db` |
 | `AWS_REGION` | AWS region for Bedrock API | `us-east-1` |
-| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-5-20251101-v1:0` |
+| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-6` |
 | `WEBHOOK_URL` | Alert dispatch target URL | `http://localhost:8000/webhooks/echo` |
 
 ### Optional Variables

@@ -29,7 +29,29 @@ DEFAULT_BEDROCK_HEALTH = {
 }
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Platform health check",
+    responses={
+        503: {
+            "description": "Database unreachable",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "degraded",
+                        "database": "unreachable",
+                        "bedrock": {
+                            "status": "unknown",
+                            "last_checked_at": None,
+                            "message": "No inference calls made yet",
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
 def get_health(
     request: Request,
     db: Session = Depends(get_db),

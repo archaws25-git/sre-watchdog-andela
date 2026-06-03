@@ -14,8 +14,12 @@ This is the SRE Watchdog project — a Python 3.11+ FastAPI application for AI-p
 - **Scheduling:** APScheduler (BackgroundScheduler)
 - **Configuration:** pydantic-settings (reads from .env)
 - **HTTP Client:** httpx (webhook dispatch, log generator)
+- **Rate Limiting:** slowapi (per-IP limits on write endpoints)
 - **Dashboard:** Jinja2 templates + Chart.js
 - **Testing:** pytest, hypothesis, freezegun, respx
+- **Type Checking:** mypy (static type analysis)
+- **Linting:** flake8
+- **Config Consolidation:** pyproject.toml (pytest, mypy, flake8, coverage)
 
 ## Architecture
 

@@ -55,7 +55,7 @@ Key variables to configure:
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///./watchdog.db` |
 | `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
-| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-5-20251101-v1:0` |
+| `BEDROCK_MODEL_ID` | Bedrock model identifier | `us.anthropic.claude-sonnet-4-6` |
 | `ERROR_RATE_THRESHOLD` | Gate 1 error rate trigger | `0.1` |
 | `ANOMALY_SCORE_THRESHOLD` | Gate 2 AI score trigger | `0.5` |
 | `WEBHOOK_URL` | Alert dispatch target | `http://localhost:8000/webhooks/echo` |
@@ -101,6 +101,13 @@ This executes with the settings defined in `pytest.ini`:
 - Minimum 80% coverage threshold enforced
 - Test markers: `unit`, `integration`, `property`
 
+Run linting and type checking:
+
+```bash
+flake8 app/ tests/ generate_logs.py
+mypy app/
+```
+
 Run specific test categories:
 
 ```bash
@@ -132,6 +139,19 @@ pytest -v
 | `GET` | `/health` | Platform health check (API, DB, Bedrock status) |
 | `GET` | `/metrics` | Operational counters |
 | `GET` | `/dashboard` | HTML dashboard with charts and anomaly list |
+
+---
+
+## Rate Limiting
+
+Write endpoints are rate-limited per IP address using `slowapi`:
+
+| Endpoint | Limit | On Exceed |
+|----------|-------|-----------|
+| `POST /logs/ingest` | 60 requests/minute | HTTP 429 with structured error body |
+| `POST /analyze` | 10 requests/minute | HTTP 429 with structured error body |
+
+Rate limiter configuration lives in `app/rate_limit.py`.
 
 ---
 

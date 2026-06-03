@@ -11,7 +11,7 @@ Typical usage::
     from app.models.schemas import LogEntryCreate, IngestRequest, LogLevel
 
     entry = LogEntryCreate(
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         service="api-gateway",
         level=LogLevel.ERROR,
         message="Connection timeout",
@@ -22,7 +22,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +118,15 @@ class AnalyzeJobStatus(str, Enum):
 # Log Ingestion Schemas
 # ---------------------------------------------------------------------------
 
+VALID_SERVICES: List[str] = [
+    "api-gateway",
+    "auth-service",
+    "payment-service",
+    "notification-service",
+    "database-proxy",
+]
+"""The 5 named services accepted by the log ingestion endpoint."""
+
 
 class LogEntryCreate(BaseModel):
     """Schema for creating a single log entry via POST /logs/ingest.
@@ -129,10 +138,43 @@ class LogEntryCreate(BaseModel):
         message: Human-readable log message text.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "timestamp": "2026-05-20T14:30:00Z",
+                    "service": "api-gateway",
+                    "level": "ERROR",
+                    "message": "Connection timeout after 5000ms to auth-service",
+                }
+            ]
+        }
+    }
+
     timestamp: datetime
     service: str
     level: LogLevel
     message: str
+
+    @field_validator("service")
+    @classmethod
+    def validate_service_name(cls, value: str) -> str:
+        """Validate that service is one of the 5 known monitored services.
+
+        Args:
+            value: The service name to validate.
+
+        Returns:
+            The validated service name, unchanged.
+
+        Raises:
+            ValueError: If the service name is not in VALID_SERVICES.
+        """
+        if value not in VALID_SERVICES:
+            raise ValueError(
+                f"Unknown service '{value}'. Must be one of: {', '.join(VALID_SERVICES)}"
+            )
+        return value
 
 
 class LogEntryResponse(LogEntryCreate):
@@ -159,6 +201,29 @@ class IngestRequest(BaseModel):
             controlled by MAX_INGEST_BATCH_SIZE.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "entries": [
+                        {
+                            "timestamp": "2026-05-20T14:30:00Z",
+                            "service": "api-gateway",
+                            "level": "ERROR",
+                            "message": "Upstream timeout",
+                        },
+                        {
+                            "timestamp": "2026-05-20T14:30:01Z",
+                            "service": "auth-service",
+                            "level": "INFO",
+                            "message": "Token validated",
+                        },
+                    ]
+                }
+            ]
+        }
+    }
+
     entries: List[LogEntryCreate]
 
 
@@ -170,6 +235,14 @@ class IngestResponse(BaseModel):
         rejected: Number of entries that failed validation.
         errors: List of human-readable error descriptions for rejected entries.
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"accepted": 498, "rejected": 2, "errors": ["Entry 12: level: Invalid enum value"]}
+            ]
+        }
+    }
 
     accepted: int
     rejected: int
@@ -252,6 +325,14 @@ class AnalyzeRequest(BaseModel):
         start_time: Start of the analysis time range (ISO 8601).
         end_time: End of the analysis time range (ISO 8601).
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"service": "payment-service", "start_time": "2026-05-20T13:00:00Z", "end_time": "2026-05-20T14:00:00Z"}
+            ]
+        }
+    }
 
     service: Optional[str] = None
     start_time: datetime
@@ -351,6 +432,22 @@ class HealthResponse(BaseModel):
         bedrock: Detailed Bedrock integration health.
     """
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "ok",
+                    "database": "ok",
+                    "bedrock": {
+                        "status": "ok",
+                        "last_checked_at": "2026-05-20T14:30:00Z",
+                        "message": "Last inference call succeeded",
+                    },
+                }
+            ]
+        }
+    }
+
     status: str
     database: str
     bedrock: BedrockHealthDetail
@@ -374,6 +471,21 @@ class MetricsResponse(BaseModel):
         total_analysis_failed: Total anomalies with status='analysis_failed'.
         total_cooldown_suppressed: Total anomalies with status='suppressed'.
     """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "total_logs_ingested": 10000,
+                    "total_anomalies_detected": 15,
+                    "total_alerts_dispatched": 8,
+                    "total_failed_alerts": 1,
+                    "total_analysis_failed": 3,
+                    "total_cooldown_suppressed": 3,
+                }
+            ]
+        }
+    }
 
     total_logs_ingested: int
     total_anomalies_detected: int

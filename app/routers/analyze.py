@@ -20,7 +20,7 @@ Typical usage::
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
+from app.rate_limit import limiter
 from app.models.db_models import AnomalyWindow, LogEntry
 from app.models.schemas import (
     AnalyzeJobResult,
@@ -65,7 +66,14 @@ ERROR_LEVELS: set = {"ERROR", "CRITICAL"}
 # ---------------------------------------------------------------------------
 
 
-@router.post("/analyze", status_code=202, response_model=AnalyzeResponse)
+@router.post(
+    "/analyze",
+    status_code=202,
+    response_model=AnalyzeResponse,
+    summary="Trigger on-demand analysis",
+    responses={429: {"description": "Rate limit exceeded"}},
+)
+@limiter.limit("10/minute")
 def create_analyze_job(
     body: AnalyzeRequest,
     request: Request,
@@ -117,7 +125,21 @@ def create_analyze_job(
     return AnalyzeResponse(job_id=job_id, status=AnalyzeJobStatus.PENDING)
 
 
-@router.get("/analyze/{job_id}", response_model=AnalyzeJobResult)
+@router.get(
+    "/analyze/{job_id}",
+    response_model=AnalyzeJobResult,
+    summary="Poll analysis job status",
+    responses={
+        404: {
+            "description": "Job not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Job abc123 not found"}
+                }
+            },
+        }
+    },
+)
 def get_analyze_job(job_id: str, request: Request) -> AnalyzeJobResult:
     """Retrieve the current status and results of an analysis job.
 
@@ -178,9 +200,9 @@ def _run_analysis_job(
         status=AnalyzeJobStatus.RUNNING,
     )
 
-    db: Session = SessionLocal()
+    db: Session = None
     try:
-        # Determine which services to analyze
+        db = SessionLocal()
         services_to_analyze = [service] if service else MONITORED_SERVICES
 
         anomalies_found = 0
@@ -243,7 +265,7 @@ def _run_analysis_job(
             status=AnalyzeJobStatus.COMPLETED,
             anomalies_found=anomalies_found,
             alerts_dispatched=alerts_dispatched,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
         )
 
         logger.info(
@@ -259,7 +281,7 @@ def _run_analysis_job(
             job_id=job_id,
             status=AnalyzeJobStatus.FAILED,
             error=str(exc),
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
         )
 
         logger.error(
@@ -268,7 +290,8 @@ def _run_analysis_job(
             f'"error": "{str(exc)}"}}'
         )
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 def _run_gate2_for_job(
@@ -310,13 +333,13 @@ def _run_gate2_for_job(
     except BedrockParseError as exc:
         anomaly_window.status = "analysis_failed"
         anomaly_window.failure_reason = f"BedrockParseError: {exc.message}"
-        anomaly_window.updated_at = datetime.utcnow().isoformat()
+        anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return False
     except Exception as exc:
         anomaly_window.status = "analysis_failed"
         anomaly_window.failure_reason = str(exc)
-        anomaly_window.updated_at = datetime.utcnow().isoformat()
+        anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return False
 
@@ -329,14 +352,14 @@ def _run_gate2_for_job(
         if is_in_cooldown(anomaly_window.service, db, settings):
             anomaly_window.status = "suppressed"
             anomaly_window.suppression_reason = "cooldown_active"
-            anomaly_window.updated_at = datetime.utcnow().isoformat()
+            anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
             db.commit()
             # Create suppressed alert record
             alert_dispatch(anomaly_window, db, settings)
             return False
         else:
             anomaly_window.status = "confirmed"
-            anomaly_window.updated_at = datetime.utcnow().isoformat()
+            anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
             db.commit()
             # Dispatch alert
             alert_record = alert_dispatch(anomaly_window, db, settings)
@@ -347,6 +370,6 @@ def _run_gate2_for_job(
             return is_sent
     else:
         anomaly_window.status = "below_score_threshold"
-        anomaly_window.updated_at = datetime.utcnow().isoformat()
+        anomaly_window.updated_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return False

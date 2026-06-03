@@ -32,6 +32,7 @@ Every log entry follows a consistent schema:
 | Anomaly Detection | `app.services.anomaly_detector` | service, error_rate, anomaly_id, status |
 | Bedrock Inference | `app.services.bedrock_client` | service, anomaly_id, anomaly_score, input_tokens, output_tokens, latency_ms |
 | Alert Dispatch | `app.services.alert_service` | anomaly_id, service, severity, webhook_url, http_status |
+| Rate Limit Exceeded | `slowapi` | client_ip, endpoint, limit, retry_after |
 | Scheduler | `app.scheduler` | job_id, next_run_time |
 
 ### Log Levels Usage

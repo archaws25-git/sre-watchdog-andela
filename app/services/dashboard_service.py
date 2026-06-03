@@ -18,7 +18,7 @@ Typical usage::
     alerts = get_recent_alerts(db, limit=20)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import func
@@ -79,7 +79,7 @@ def get_chart_data(db: Session) -> dict[str, Any]:
                 ]
             }
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Align to the start of the current hour
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     start_time = current_hour - timedelta(hours=23)
@@ -237,18 +237,24 @@ def get_recent_alerts(db: Session, limit: int = 20) -> list[dict[str, Any]]:
             - dispatch_status: Outcome string (sent, failed, suppressed).
     """
     rows = (
-        db.query(AlertRecord, AnomalyWindow.service)
-        .join(AnomalyWindow, AlertRecord.anomaly_id == AnomalyWindow.id)
+        db.query(AlertRecord)
         .order_by(AlertRecord.dispatched_at.desc())
         .limit(limit)
         .all()
     )
 
     results: list[dict[str, Any]] = []
-    for alert, service_name in rows:
+    for alert in rows:
+        # Look up service from the linked anomaly window
+        anomaly = (
+            db.query(AnomalyWindow)
+            .filter(AnomalyWindow.id == alert.anomaly_id)
+            .first()
+        )
+        service_name = anomaly.service if anomaly else "unknown"
         results.append({
             "dispatched_at": alert.dispatched_at,
-            "service": service_name or "unknown",
+            "service": service_name,
             "severity": alert.severity,
             "anomaly_id": alert.anomaly_id,
             "dispatch_status": alert.dispatch_status,

@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
 from app.database import Base, get_db
@@ -86,6 +87,7 @@ def test_db() -> Generator[Session, None, None]:
     test_engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
 
     @event.listens_for(test_engine, "connect")
