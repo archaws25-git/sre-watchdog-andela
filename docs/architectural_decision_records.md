@@ -203,3 +203,29 @@ Add a Pydantic `field_validator` on `LogEntryCreate.service` that validates the 
 - **Positive:** Catches misconfigured log shippers immediately with a clear error message.
 - **Positive:** Simplifies downstream queries — no need to filter or normalize service names.
 - **Negative:** Adding a new service requires a code change to the validator (acceptable for a fixed-scope MVP; production could read from a config file or database).
+
+
+---
+
+## ADR-018: Credential Failure Purge on Startup
+
+### Context
+
+When AWS credentials expire or are misconfigured, every APScheduler detection tick creates `analysis_failed` anomaly records with failure reasons like "Unable to locate credentials" or "ExpiredTokenException". These records accumulate during the downtime and clutter the dashboard with noise that has no diagnostic value once credentials are restored.
+
+### Decision
+
+On application startup, if valid AWS credentials ARE detected, automatically purge all `analysis_failed` records whose `failure_reason` matches credential-related patterns:
+- `%credential%`
+- `%ExpiredToken%`
+- `%security token%`
+- `%Access Denied%`
+
+The purge is implemented in `app/services/anomaly_detector.py::purge_credential_failures()` and called from the lifespan handler in `app/main.py`.
+
+### Consequences
+
+- **Positive:** Dashboard is clean after a credential rotation + restart cycle. No manual DB cleanup needed.
+- **Positive:** Only credential-related failures are purged — genuine analysis failures (BedrockParseError, timeout) are preserved.
+- **Negative:** Loses the audit trail of when credentials were missing. Acceptable because the `/metrics` counter `total_analysis_failed` still reflects the historical count, and structured logs capture the events.
+- **Negative:** If credentials appear valid at startup but fail at runtime (e.g., Bedrock model access not enabled), those failures accumulate until the next restart with truly valid credentials.

@@ -267,7 +267,7 @@ SQLAlchemy's database URL abstraction means only the `DATABASE_URL` environment 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ERROR_RATE_THRESHOLD` | Gate 1 error rate threshold (0.0–1.0) | `0.10` |
-| `ANOMALY_SCORE_THRESHOLD` | Gate 2 score threshold (0.0–1.0) | `0.70` |
+| `ANOMALY_SCORE_THRESHOLD` | Gate 2 score threshold (0.0–1.0) | `0.50` |
 | `SLIDING_WINDOW_MINUTES` | Detection window duration | `5` |
 | `ALERT_COOLDOWN_MINUTES` | Alert suppression window | `15` |
 | `DETECTION_INTERVAL_SECONDS` | Scheduler tick interval | `60` |
@@ -295,7 +295,9 @@ SQLAlchemy's database URL abstraction means only the `DATABASE_URL` environment 
 |-------|-------|-----------|
 | `ConfigurationError` at startup | Missing required env var | Check `.env` file exists and contains all required variables |
 | Bedrock status "degraded" | No AWS credentials found | Configure AWS credentials via any boto3-supported method |
+| `analysis_failed` entries on dashboard | Expired AWS session token | Refresh credentials and restart; stale credential-failure records are auto-purged on next startup with valid credentials |
 | HTTP 413 on ingest | Batch exceeds 500 entries | Split into smaller batches (generator uses 500 per batch) |
+| HTTP 429 on ingest/analyze | Rate limit exceeded | Wait and retry; limits are 60/min (ingest) and 10/min (analyze) |
 | Database locked errors | Concurrent write contention | Ensure WAL mode is enabled; check for long-running transactions |
 | Webhook dispatch failures | Target URL unreachable | Verify `WEBHOOK_URL` is accessible; check network connectivity |
 
