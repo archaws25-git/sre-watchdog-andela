@@ -33,6 +33,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import BackgroundTasks
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -98,24 +99,29 @@ def evaluate_all_services(
     window_end_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
 
     for service in MONITORED_SERVICES:
-        # Query log entries within the sliding window for this service
-        entries = (
-            db.query(LogEntry)
+        # SQL-level counting avoids loading all ORM objects into memory
+        total_count = (
+            db.query(func.count(LogEntry.id))
             .filter(
                 LogEntry.service == service,
                 LogEntry.timestamp >= window_start_iso,
             )
-            .all()
-        )
+            .scalar()
+        ) or 0
 
-        total_count = len(entries)
         if total_count == 0:
             continue
 
-        # Compute error rate: (ERROR + CRITICAL) / total
-        error_count = sum(
-            1 for entry in entries if entry.level in ERROR_LEVELS
-        )
+        error_count = (
+            db.query(func.count(LogEntry.id))
+            .filter(
+                LogEntry.service == service,
+                LogEntry.timestamp >= window_start_iso,
+                LogEntry.level.in_(["ERROR", "CRITICAL"]),
+            )
+            .scalar()
+        ) or 0
+
         error_rate = error_count / total_count
 
         # Check if error rate exceeds threshold

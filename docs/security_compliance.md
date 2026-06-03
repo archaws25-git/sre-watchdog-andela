@@ -107,7 +107,7 @@ For ECS/Fargate deployment:
     {
       "Effect": "Allow",
       "Action": "bedrock:InvokeModel",
-      "Resource": "arn:aws:bedrock:us-east-1::foundation-model/us.anthropic.claude-sonnet-4-5-20251101-v1:0"
+      "Resource": "arn:aws:bedrock:us-east-1::foundation-model/us.anthropic.claude-sonnet-4-6"
     }
   ]
 }
@@ -193,6 +193,9 @@ When a rate limit is exceeded, the API returns HTTP 429 with a structured JSON e
 All dependencies are pinned to exact versions in `requirements.txt` to prevent supply chain attacks via version drift.
 
 ### Vulnerability Scanning
+
+**Implemented tools:**
+- `bandit==1.9.4` — Python SAST (Static Application Security Testing) scanner. Runs via `bandit -r app/ generate_logs.py`. Results: 0 High, 1 Medium (intentional `0.0.0.0` bind), 5 Low (non-crypto `random` usage in synthetic data generator).
 
 **Recommended tools for production:**
 - `pip-audit` — Check installed packages against known vulnerabilities

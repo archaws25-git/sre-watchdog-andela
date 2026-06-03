@@ -59,6 +59,9 @@ def get_chart_data(db: Session) -> dict[str, Any]:
     computes the error rate (ERROR + CRITICAL / total) per service per bucket.
     Buckets with no log entries default to ``0.0``.
 
+    Uses a single aggregation query (GROUP BY service, hour) instead of
+    per-bucket queries, reducing ~240 queries down to 1.
+
     Args:
         db: An active SQLAlchemy session for database queries.
 
@@ -79,57 +82,59 @@ def get_chart_data(db: Session) -> dict[str, Any]:
                 ]
             }
     """
+    from sqlalchemy import case
+
     now = datetime.now(timezone.utc)
     # Align to the start of the current hour
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     start_time = current_hour - timedelta(hours=23)
+    start_time_iso = start_time.strftime("%Y-%m-%dT%H:%M:%S")
 
-    # Generate 24 hourly bucket boundaries
-    buckets: list[tuple[datetime, datetime]] = []
-    labels: list[str] = []
-    for i in range(24):
-        bucket_start = start_time + timedelta(hours=i)
-        bucket_end = bucket_start + timedelta(hours=1)
-        buckets.append((bucket_start, bucket_end))
-        labels.append(bucket_start.strftime("%Y-%m-%dT%H:%M"))
+    # Generate labels
+    labels = [
+        (start_time + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M")
+        for i in range(24)
+    ]
 
-    # Build datasets for each service
+    # Single query: total entries and error count per service per hour
+    hour_expr = func.substr(LogEntry.timestamp, 1, 13)
+
+    totals = (
+        db.query(
+            LogEntry.service,
+            hour_expr.label("hour_bucket"),
+            func.count(LogEntry.id).label("total"),
+            func.count(
+                case(
+                    (LogEntry.level.in_(["ERROR", "CRITICAL"]), LogEntry.id),
+                )
+            ).label("errors"),
+        )
+        .filter(LogEntry.timestamp >= start_time_iso)
+        .group_by(LogEntry.service, hour_expr)
+        .all()
+    )
+
+    # Build a lookup: (service, hour_prefix) -> (total, errors)
+    bucket_data: dict[tuple[str, str], tuple[int, int]] = {}
+    for service, hour_bucket, total, errors in totals:
+        bucket_data[(service, hour_bucket)] = (total, errors)
+
+    # Map into Chart.js datasets
     datasets: list[dict[str, Any]] = []
     for service in MONITORED_SERVICES:
         data: list[float] = []
-        for bucket_start, bucket_end in buckets:
-            bucket_start_iso = bucket_start.strftime("%Y-%m-%dT%H:%M:%S")
-            bucket_end_iso = bucket_end.strftime("%Y-%m-%dT%H:%M:%S")
-
-            # Count total entries in this bucket for this service
-            total_count = (
-                db.query(func.count(LogEntry.id))
-                .filter(
-                    LogEntry.service == service,
-                    LogEntry.timestamp >= bucket_start_iso,
-                    LogEntry.timestamp < bucket_end_iso,
-                )
-                .scalar()
-            ) or 0
-
-            if total_count == 0:
-                data.append(0.0)
-            else:
-                # Count ERROR + CRITICAL entries
-                error_count = (
-                    db.query(func.count(LogEntry.id))
-                    .filter(
-                        LogEntry.service == service,
-                        LogEntry.timestamp >= bucket_start_iso,
-                        LogEntry.timestamp < bucket_end_iso,
-                        LogEntry.level.in_(["ERROR", "CRITICAL"]),
-                    )
-                    .scalar()
-                ) or 0
-
-                error_rate = error_count / total_count
-                data.append(round(error_rate, 4))
-
+        for i in range(24):
+            hour_prefix = (start_time + timedelta(hours=i)).strftime(
+                "%Y-%m-%dT%H"
+            )
+            total, errors = bucket_data.get(
+                (service, hour_prefix), (0, 0)
+            )
+            error_rate = (
+                round(errors / total, 4) if total > 0 else 0.0
+            )
+            data.append(error_rate)
         datasets.append({
             "label": service,
             "data": data,
@@ -138,10 +143,7 @@ def get_chart_data(db: Session) -> dict[str, Any]:
             "fill": False,
         })
 
-    return {
-        "labels": labels,
-        "datasets": datasets,
-    }
+    return {"labels": labels, "datasets": datasets}
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +224,8 @@ def get_recent_alerts(db: Session, limit: int = 20) -> list[dict[str, Any]]:
     """Retrieve the most recent alert records for dashboard display.
 
     Queries ``alert_records`` joined with ``anomaly_windows`` to include the
-    service name, ordered by ``dispatched_at`` descending.
+    service name, ordered by ``dispatched_at`` descending. Uses a single
+    JOIN query instead of N+1 individual lookups.
 
     Args:
         db: An active SQLAlchemy session for database queries.
@@ -237,24 +240,20 @@ def get_recent_alerts(db: Session, limit: int = 20) -> list[dict[str, Any]]:
             - dispatch_status: Outcome string (sent, failed, suppressed).
     """
     rows = (
-        db.query(AlertRecord)
+        db.query(AlertRecord, AnomalyWindow.service)
+        .outerjoin(
+            AnomalyWindow, AlertRecord.anomaly_id == AnomalyWindow.id
+        )
         .order_by(AlertRecord.dispatched_at.desc())
         .limit(limit)
         .all()
     )
 
     results: list[dict[str, Any]] = []
-    for alert in rows:
-        # Look up service from the linked anomaly window
-        anomaly = (
-            db.query(AnomalyWindow)
-            .filter(AnomalyWindow.id == alert.anomaly_id)
-            .first()
-        )
-        service_name = anomaly.service if anomaly else "unknown"
+    for alert, service_name in rows:
         results.append({
             "dispatched_at": alert.dispatched_at,
-            "service": service_name,
+            "service": service_name or "unknown",
             "severity": alert.severity,
             "anomaly_id": alert.anomaly_id,
             "dispatch_status": alert.dispatch_status,
